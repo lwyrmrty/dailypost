@@ -21,7 +21,7 @@ RUN apt-get update -qq && \
 
 # Install node modules (skip lock file to get correct platform binaries)
 COPY package.json ./
-RUN npm install --legacy-peer-deps
+RUN npm install --legacy-peer-deps --include=dev
 
 # Copy application code
 COPY . .
