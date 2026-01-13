@@ -7,7 +7,6 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // @ts-expect-error - DrizzleAdapter type mismatch with next-auth beta
   adapter: DrizzleAdapter(db),
   providers: [
     Credentials({
