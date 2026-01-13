@@ -19,9 +19,9 @@ FROM base as build
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
 
-# Install node modules
-COPY package-lock.json package.json ./
-RUN npm install --legacy-peer-deps --include=dev
+# Install node modules (skip lock file to get correct platform binaries)
+COPY package.json ./
+RUN npm install --legacy-peer-deps
 
 # Copy application code
 COPY . .
