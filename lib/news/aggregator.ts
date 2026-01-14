@@ -2,8 +2,8 @@ import { db } from '@/lib/db';
 import { sources, SourceType } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { parseFeed, filterRecentItems, RSSItem } from './rss-parser';
-import { fetchRedditStories, isRedditUrl, REDDIT_DEFAULT_SOURCES } from './reddit-scraper';
-import { fetchXStories, isXUrl, X_DEFAULT_SOURCES } from './x-scraper';
+import { fetchRedditStories, isRedditUrl } from './reddit-scraper';
+import { fetchXStories, isXUrl } from './x-scraper';
 import { fetchLinkedInStories, isLinkedInUrl } from './linkedin-scraper';
 
 export interface NewsStory {
@@ -116,20 +116,18 @@ export async function aggregateNews(userId: string): Promise<NewsStory[]> {
 
   const activeSources = userSources.filter(s => s.isActive);
   
-  // If no custom sources, use defaults
-  const sourcesToFetch = activeSources.length > 0
-    ? activeSources.map(s => ({
-        type: s.sourceType as SourceType,
-        url: s.sourceUrl,
-        name: s.sourceName,
-        priority: s.priority,
-      }))
-    : DEFAULT_SOURCES.map(s => ({
-        type: s.sourceType as SourceType,
-        url: s.sourceUrl,
-        name: s.sourceName,
-        priority: s.priority,
-      }));
+  // Only use user's explicit sources - no defaults
+  if (activeSources.length === 0) {
+    console.log(`No active sources for user ${userId}, skipping aggregation`);
+    return [];
+  }
+  
+  const sourcesToFetch = activeSources.map(s => ({
+    type: s.sourceType as SourceType,
+    url: s.sourceUrl,
+    name: s.sourceName,
+    priority: s.priority,
+  }));
 
   const stories: NewsStory[] = [];
 
@@ -191,71 +189,6 @@ export async function getStoriesForTopics(
     .sort((a, b) => b.priority - a.priority);
 }
 
-// Default sources combining RSS, Reddit, and X
-const DEFAULT_SOURCES = [
-  // RSS Feeds
-  {
-    sourceType: 'rss' as SourceType,
-    sourceUrl: 'https://techcrunch.com/feed/',
-    sourceName: 'TechCrunch',
-    priority: 5,
-  },
-  {
-    sourceType: 'rss' as SourceType,
-    sourceUrl: 'https://www.theverge.com/rss/index.xml',
-    sourceName: 'The Verge',
-    priority: 4,
-  },
-  {
-    sourceType: 'rss' as SourceType,
-    sourceUrl: 'https://feeds.arstechnica.com/arstechnica/technology-lab',
-    sourceName: 'Ars Technica',
-    priority: 4,
-  },
-  {
-    sourceType: 'rss' as SourceType,
-    sourceUrl: 'https://www.wired.com/feed/rss',
-    sourceName: 'Wired',
-    priority: 3,
-  },
-  {
-    sourceType: 'rss' as SourceType,
-    sourceUrl: 'https://news.mit.edu/rss/topic/artificial-intelligence2',
-    sourceName: 'MIT News - AI',
-    priority: 5,
-  },
-  {
-    sourceType: 'rss' as SourceType,
-    sourceUrl: 'https://spectrum.ieee.org/feeds/feed.rss',
-    sourceName: 'IEEE Spectrum',
-    priority: 4,
-  },
-  // Reddit sources
-  ...REDDIT_DEFAULT_SOURCES,
-];
-
-export async function initializeDefaultSources(userId: string) {
-  // Check if user already has sources
-  const existingSources = await db.query.sources.findMany({
-    where: eq(sources.userId, userId),
-  });
-
-  if (existingSources.length > 0) {
-    return; // User already has sources
-  }
-
-  // Add default sources
-  await db.insert(sources).values(
-    DEFAULT_SOURCES.map(s => ({
-      userId,
-      sourceType: s.sourceType,
-      sourceUrl: s.sourceUrl,
-      sourceName: s.sourceName,
-      priority: s.priority,
-      isActive: true,
-    }))
-  );
-}
-
-// Export for use in settings
-export { DEFAULT_SOURCES };
+// Note: Default/suggested sources are now defined in:
+// app/(dashboard)/onboarding/components/Step8_Sources.tsx
+// Users explicitly choose their sources during onboarding

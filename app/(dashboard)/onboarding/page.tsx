@@ -11,6 +11,7 @@ import Step4Inspiration, { InspirationAccount } from './components/Step4_Inspira
 import Step5PostTypes, { PostTypeRating } from './components/Step5_PostTypes';
 import Step6ToneCalibration, { TonePreferences } from './components/Step6_ToneCalibration';
 import Step7TopicPerspectives, { TopicPerspective } from './components/Step7_TopicPerspectives';
+import Step8Sources, { SelectedSource } from './components/Step8_Sources';
 import { calculateProgress, OnboardingStep } from '@/lib/utils/onboarding';
 
 interface OnboardingData {
@@ -22,6 +23,7 @@ interface OnboardingData {
   postTypeRatings?: PostTypeRating[];
   tonePreferences?: TonePreferences;
   topicPerspectives?: TopicPerspective[];
+  sources?: SelectedSource[];
 }
 
 export default function OnboardingPage() {
@@ -33,7 +35,7 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
 
   const progress = calculateProgress(completedSteps);
-  const totalSteps = 7;
+  const totalSteps = 8;
 
   // Save progress to backend
   async function saveProgress(newData: OnboardingData, newCompletedSteps: OnboardingStep[]) {
@@ -155,7 +157,7 @@ export default function OnboardingPage() {
     setCurrentStep(7);
   }
 
-  async function handleStep7Complete(stepData: { topicPerspectives: TopicPerspective[] }) {
+  function handleStep7Complete(stepData: { topicPerspectives: TopicPerspective[] }) {
     const newData = { ...data, topicPerspectives: stepData.topicPerspectives };
     const newCompleted = [...completedSteps];
     if (!newCompleted.includes('perspectives')) {
@@ -163,7 +165,36 @@ export default function OnboardingPage() {
     }
     setData(newData);
     setCompletedSteps(newCompleted);
+    saveProgress(newData, newCompleted);
+    setCurrentStep(8);
+  }
+
+  async function handleStep8Complete(stepData: { sources: SelectedSource[] }) {
+    const newData = { ...data, sources: stepData.sources };
+    const newCompleted = [...completedSteps];
+    if (!newCompleted.includes('sources')) {
+      newCompleted.push('sources');
+    }
+    setData(newData);
+    setCompletedSteps(newCompleted);
     await saveProgress(newData, newCompleted);
+    
+    // Save sources to database
+    if (session?.user?.id && stepData.sources.length > 0) {
+      for (const source of stepData.sources) {
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: session.user.id,
+            sourceUrl: source.sourceUrl,
+            sourceName: source.sourceName,
+            sourceType: source.sourceType,
+            priority: source.priority,
+          }),
+        });
+      }
+    }
     
     // Complete onboarding
     if (session?.user?.id) {
@@ -272,9 +303,27 @@ export default function OnboardingPage() {
           {currentStep === 7 && (
             <Step7TopicPerspectives
               onComplete={handleStep7Complete}
-              onSkip={() => router.push('/dashboard')}
+              onSkip={handleSkip}
               primaryTopics={data.foundation?.primaryTopics || []}
               initialData={data.topicPerspectives ? { topicPerspectives: data.topicPerspectives } : undefined}
+            />
+          )}
+          
+          {currentStep === 8 && (
+            <Step8Sources
+              onComplete={handleStep8Complete}
+              onSkip={() => {
+                // Complete without sources
+                if (session?.user?.id) {
+                  fetch('/api/onboarding/complete', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: session.user.id }),
+                  });
+                }
+                router.push('/dashboard');
+              }}
+              initialData={data.sources ? { sources: data.sources } : undefined}
             />
           )}
         </div>

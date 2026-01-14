@@ -5,16 +5,18 @@ export type OnboardingStep =
   | 'inspiration'
   | 'post_types'
   | 'tone'
-  | 'perspectives';
+  | 'perspectives'
+  | 'sources';
 
 export const STEP_WEIGHTS: Record<OnboardingStep, number> = {
-  foundation: 20, // Required
-  sample_posts: 13,
-  upload_content: 13,
-  inspiration: 13,
-  post_types: 14,
-  tone: 14,
-  perspectives: 13,
+  foundation: 18, // Required
+  sample_posts: 11,
+  upload_content: 11,
+  inspiration: 11,
+  post_types: 12,
+  tone: 12,
+  perspectives: 11,
+  sources: 14, // Important for content generation
 };
 
 export function calculateProgress(completedSteps: OnboardingStep[]): number {
@@ -40,6 +42,7 @@ export function getStepNumber(step: OnboardingStep): number {
     'post_types',
     'tone',
     'perspectives',
+    'sources',
   ];
   return steps.indexOf(step) + 1;
 }
@@ -53,6 +56,7 @@ export function getStepName(step: OnboardingStep): string {
     post_types: 'Post Types',
     tone: 'Tone',
     perspectives: 'Perspectives',
+    sources: 'News Sources',
   };
   return names[step];
 }
@@ -66,6 +70,7 @@ export function getNextStep(currentStep: OnboardingStep): OnboardingStep | null 
     'post_types',
     'tone',
     'perspectives',
+    'sources',
   ];
   
   const currentIndex = steps.indexOf(currentStep);
@@ -85,6 +90,7 @@ export function getPreviousStep(currentStep: OnboardingStep): OnboardingStep | n
     'post_types',
     'tone',
     'perspectives',
+    'sources',
   ];
   
   const currentIndex = steps.indexOf(currentStep);
@@ -94,9 +100,3 @@ export function getPreviousStep(currentStep: OnboardingStep): OnboardingStep | n
   
   return steps[currentIndex - 1];
 }
-
-
-
-
-
-

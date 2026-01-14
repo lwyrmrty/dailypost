@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { initializeDefaultSources } from '@/lib/news/aggregator';
 
 export async function POST(req: Request) {
   try {
@@ -22,13 +21,8 @@ export async function POST(req: Request) {
       })
       .where(eq(users.id, userId));
 
-    // Initialize default news sources for the user
-    try {
-      await initializeDefaultSources(userId);
-    } catch (error) {
-      console.error('Failed to initialize default sources:', error);
-      // Don't fail the whole request if this fails
-    }
+    // Note: Sources are now explicitly added by user during onboarding Step 8
+    // No default sources are auto-created
 
     return NextResponse.json({ success: true });
   } catch (error) {
