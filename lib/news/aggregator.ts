@@ -247,8 +247,11 @@ export async function initializeDefaultSources(userId: string) {
   // Add default sources
   await db.insert(sources).values(
     DEFAULT_SOURCES.map(s => ({
-      ...s,
       userId,
+      sourceType: s.sourceType,
+      sourceUrl: s.sourceUrl,
+      sourceName: s.sourceName,
+      priority: s.priority,
       isActive: true,
     }))
   );

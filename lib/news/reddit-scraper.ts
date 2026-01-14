@@ -147,25 +147,25 @@ function extractRedditContent(htmlContent: string): string {
  */
 export const REDDIT_DEFAULT_SOURCES = [
   {
-    sourceType: 'reddit',
+    sourceType: 'reddit' as const,
     sourceUrl: 'https://reddit.com/r/technology',
     sourceName: 'r/technology',
     priority: 4,
   },
   {
-    sourceType: 'reddit',
+    sourceType: 'reddit' as const,
     sourceUrl: 'https://reddit.com/r/artificial',
     sourceName: 'r/artificial',
     priority: 4,
   },
   {
-    sourceType: 'reddit',
+    sourceType: 'reddit' as const,
     sourceUrl: 'https://reddit.com/r/MachineLearning',
     sourceName: 'r/MachineLearning',
     priority: 5,
   },
   {
-    sourceType: 'reddit',
+    sourceType: 'reddit' as const,
     sourceUrl: 'https://reddit.com/r/startups',
     sourceName: 'r/startups',
     priority: 3,
