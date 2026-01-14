@@ -1,0 +1,30 @@
+name: Generate Daily Posts
+
+on:
+  schedule:
+    # Runs at 11 PM UTC every day (adjust for your timezone)
+    # 11 PM UTC = 3 PM PST / 6 PM EST
+    - cron: '0 23 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  generate-posts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger post generation
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://dailypost.app/api/generate-posts" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+          
+          if [ "$http_code" != "200" ]; then
+            echo "Failed with status $http_code"
+            exit 1
+          fi
