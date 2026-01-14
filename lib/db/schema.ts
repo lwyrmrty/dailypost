@@ -40,12 +40,17 @@ export const voiceProfiles = pgTable('voice_profiles', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Source types supported by the aggregator
+export const SOURCE_TYPES = ['rss', 'reddit', 'x', 'linkedin'] as const;
+export type SourceType = typeof SOURCE_TYPES[number];
+
 // Sources table
 export const sources = pgTable('sources', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   
-  sourceType: text('source_type').notNull(), // 'rss' | 'linkedin_account' | 'x_account'
+  // Source type: 'rss' | 'reddit' | 'x' | 'linkedin'
+  sourceType: text('source_type').notNull().$type<SourceType>(),
   sourceUrl: text('source_url').notNull(),
   sourceName: text('source_name'),
   priority: integer('priority').default(3).notNull(), // 1-5 scale
