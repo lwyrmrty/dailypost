@@ -8,6 +8,25 @@ interface NewsStory {
   topic?: string;
 }
 
+/**
+ * Build the voice instruction section, preferring the Style Bible over structured guidelines.
+ * The Style Bible is a rich narrative document; structured guidelines are a fallback.
+ */
+function buildVoiceSection(profile: Partial<VoiceProfile>): string {
+  const styleBible = profile.styleBible as string | null;
+  if (styleBible) {
+    return `STYLE BIBLE (your primary reference for this person's voice):
+${styleBible}`;
+  }
+
+  // Fallback to structured voice guidelines
+  const voiceGuidelines = buildVoiceGuidelines(
+    profile.voiceAnalysis as Record<string, unknown> || {}
+  );
+  return `VOICE GUIDELINES:
+${voiceGuidelines}`;
+}
+
 function buildWritingSamplesSection(profile: Partial<VoiceProfile>, platform: 'linkedin' | 'x'): string {
   const examples = selectFewShotExamples(
     profile.samplePosts as string[] | null,
@@ -87,9 +106,7 @@ export function buildLinkedInPostPrompt(
   story: NewsStory,
   profile: Partial<VoiceProfile>
 ): string {
-  const voiceGuidelines = buildVoiceGuidelines(
-    profile.voiceAnalysis as Record<string, unknown> || {}
-  );
+  const voiceSection = buildVoiceSection(profile);
 
   const preferredTypes = (profile.postTypeRatings as Array<{ type: string; rating: number }> || [])
     .filter(r => r.rating >= 4)
@@ -107,8 +124,7 @@ You are a ghostwriter who has deeply studied this person's writing and must prod
 ABOUT THE AUTHOR:
 "${profile.jobDescription || 'A professional in their field'}"
 
-VOICE GUIDELINES:
-${voiceGuidelines}
+${voiceSection}
 ${writingSamples}
 
 CONTENT PROFILE:
@@ -151,9 +167,7 @@ export function buildXPostPrompt(
   story: NewsStory,
   profile: Partial<VoiceProfile>
 ): string {
-  const voiceGuidelines = buildVoiceGuidelines(
-    profile.voiceAnalysis as Record<string, unknown> || {}
-  );
+  const voiceSection = buildVoiceSection(profile);
 
   const writingSamples = buildWritingSamplesSection(profile, 'x');
   const perspectives = buildPerspectivesSection(profile, story.topic);
@@ -170,8 +184,7 @@ You are a ghostwriter who has deeply studied this person's writing. Adapt their 
 ABOUT THE AUTHOR:
 "${profile.jobDescription || 'A professional in their field'}"
 
-VOICE GUIDELINES:
-${voiceGuidelines}
+${voiceSection}
 ${writingSamples}
 ${xStyleNote ? `\nX/TWITTER ADAPTATION: ${xStyleNote}` : ''}
 
@@ -217,9 +230,7 @@ export function buildQuickPostPrompt(
   profile: Partial<VoiceProfile>,
   platform: 'linkedin' | 'x'
 ): string {
-  const voiceGuidelines = buildVoiceGuidelines(
-    profile.voiceAnalysis as Record<string, unknown> || {}
-  );
+  const voiceSection = buildVoiceSection(profile);
 
   const writingSamples = buildWritingSamplesSection(profile, platform);
   const perspectives = buildPerspectivesSection(profile, topic);
@@ -236,8 +247,7 @@ ABOUT THE AUTHOR:
 
 TOPIC/IDEA: ${topic}
 
-VOICE GUIDELINES:
-${voiceGuidelines}
+${voiceSection}
 ${writingSamples}
 ${perspectives ? `\n${perspectives}` : ''}
 

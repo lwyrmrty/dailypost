@@ -1,66 +1,107 @@
 'use client';
 
 import { useState } from 'react';
-import { SAMPLE_STORIES } from '@/lib/constants/onboarding';
+
+const REWRITE_EXERCISES = [
+  {
+    topic: 'AI in Enterprise',
+    generic: `Artificial intelligence is transforming enterprise software. Companies are increasingly adopting AI solutions to improve efficiency and reduce costs. This trend is expected to continue as the technology matures and becomes more accessible to organizations of all sizes. Business leaders should consider how AI can be integrated into their operations.`,
+    context: 'A generic take on AI adoption',
+  },
+  {
+    topic: 'Startup Fundraising',
+    generic: `A notable startup has successfully raised a significant Series B round. The funding will be used to expand the team and accelerate product development. Investors expressed confidence in the company\'s growth trajectory and market opportunity. This round reflects continued investor interest in the sector.`,
+    context: 'A bland fundraising announcement',
+  },
+  {
+    topic: 'Industry Shift',
+    generic: `The technology industry is undergoing a major transition. Traditional approaches are being replaced by new methodologies that promise better outcomes. While some experts are optimistic about these changes, others urge caution. It will be interesting to see how this plays out over the next few years.`,
+    context: 'A safe, noncommittal industry observation',
+  },
+];
 
 interface Step2Props {
-  onComplete: (data: { samplePosts: string[] }) => void;
+  onComplete: (data: { samplePosts: string[]; rewriteExercises: RewritePair[] }) => void;
   onSkip: () => void;
   initialData?: { samplePosts: string[] };
 }
 
+export interface RewritePair {
+  original: string;
+  rewrite: string;
+  topic: string;
+}
+
 export default function Step2SamplePosts({ onComplete, onSkip, initialData }: Step2Props) {
-  const [posts, setPosts] = useState<Record<number, string>>(
+  const [rewrites, setRewrites] = useState<Record<number, string>>(
     initialData?.samplePosts?.reduce((acc, post, idx) => ({ ...acc, [idx]: post }), {}) || {}
   );
 
   function handleSubmit() {
-    const writtenPosts = Object.values(posts).filter(p => p.trim().length > 0);
-    if (writtenPosts.length >= 2) {
-      onComplete({ samplePosts: writtenPosts });
+    const pairs: RewritePair[] = [];
+    const posts: string[] = [];
+
+    REWRITE_EXERCISES.forEach((exercise, idx) => {
+      const rewrite = rewrites[idx]?.trim();
+      if (rewrite && rewrite.length > 50) {
+        pairs.push({
+          original: exercise.generic,
+          rewrite,
+          topic: exercise.topic,
+        });
+        posts.push(rewrite);
+      }
+    });
+
+    if (pairs.length >= 2) {
+      onComplete({ samplePosts: posts, rewriteExercises: pairs });
     }
   }
 
-  const writtenCount = Object.values(posts).filter(p => p.trim().length > 50).length;
+  const completedCount = Object.values(rewrites).filter(r => r.trim().length > 50).length;
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Write a few sample posts</h2>
+        <h2 className="text-2xl font-bold mb-2">Rewrite in your voice</h2>
         <p className="text-gray-600">
-          This helps us capture your natural voice. Write at least 2 posts as you normally would.
+          Below are generic, AI-sounding posts. Rewrite at least 2 of them the way
+          <strong> you</strong> would actually say it. Don&apos;t worry about the topic &mdash;
+          we&apos;re learning <em>how</em> you write, not <em>what</em> you write about.
+        </p>
+        <p className="text-sm text-gray-500 mt-2">
+          Change the tone, restructure, add personality, be opinionated &mdash; make it yours.
         </p>
       </div>
 
-      {SAMPLE_STORIES.map((story, idx) => (
+      {REWRITE_EXERCISES.map((exercise, idx) => (
         <div key={idx} className="border border-gray-200 rounded-xl p-6 space-y-4">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-              Sample Story
-            </span>
-            <h3 className="font-semibold text-lg mt-1">{story.title}</h3>
-            <p className="text-gray-600 mt-1">{story.summary}</p>
-            <span className="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-              {story.topic}
+          <div>
+            <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+              {exercise.context}
             </span>
           </div>
-          
+
+          <div className="bg-gray-50 rounded-lg p-4 text-gray-500 text-sm leading-relaxed border-l-4 border-gray-200">
+            {exercise.generic}
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-2">
-              Write a LinkedIn post about this story
+              Your version
             </label>
             <textarea
-              value={posts[idx] || ''}
-              onChange={(e) => setPosts(prev => ({ ...prev, [idx]: e.target.value }))}
-              placeholder="Write in your natural voice... Don't worry about being perfect, we want to learn how you naturally express yourself."
+              value={rewrites[idx] || ''}
+              onChange={(e) => setRewrites(prev => ({ ...prev, [idx]: e.target.value }))}
+              placeholder="Rewrite this in your own voice... Be yourself. Be opinionated. Write it the way you'd actually post it."
               className="w-full border border-gray-300 rounded-lg p-4 h-40 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
             <div className="flex justify-between mt-1">
               <span className="text-xs text-gray-500">
-                {posts[idx]?.length || 0} characters
+                {rewrites[idx]?.length || 0} characters
               </span>
-              {(posts[idx]?.length || 0) >= 50 && (
-                <span className="text-xs text-green-600">✓ Good length</span>
+              {(rewrites[idx]?.length || 0) >= 50 && (
+                <span className="text-xs text-green-600">Ready</span>
               )}
             </div>
           </div>
@@ -78,17 +119,12 @@ export default function Step2SamplePosts({ onComplete, onSkip, initialData }: St
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={writtenCount < 2}
+          disabled={completedCount < 2}
           className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
         >
-          Continue ({writtenCount}/2 minimum)
+          Continue ({completedCount}/2 minimum)
         </button>
       </div>
     </div>
   );
 }
-
-
-
-
-

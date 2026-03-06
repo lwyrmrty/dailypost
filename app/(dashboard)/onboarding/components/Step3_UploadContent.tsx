@@ -55,10 +55,18 @@ interface VoiceAnalysis {
   [key: string]: unknown;
 }
 
+interface RewritePair {
+  original: string;
+  rewrite: string;
+  topic: string;
+}
+
 interface Step3Props {
-  onComplete: (data: { uploadedContent: string[]; voiceAnalysis?: VoiceAnalysis }) => void;
+  onComplete: (data: { uploadedContent: string[]; voiceAnalysis?: VoiceAnalysis; styleBible?: string }) => void;
   onSkip: () => void;
   initialData?: { uploadedContent: string[] };
+  rewritePairs?: RewritePair[];
+  jobDescription?: string;
 }
 
 function AnalysisDisplay({ analysis }: { analysis: VoiceAnalysis }) {
@@ -214,10 +222,11 @@ function AnalysisDisplay({ analysis }: { analysis: VoiceAnalysis }) {
   );
 }
 
-export default function Step3UploadContent({ onComplete, onSkip, initialData }: Step3Props) {
+export default function Step3UploadContent({ onComplete, onSkip, initialData, rewritePairs, jobDescription }: Step3Props) {
   const [content, setContent] = useState(initialData?.uploadedContent?.join('\n\n---\n\n') || '');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<VoiceAnalysis | null>(null);
+  const [styleBible, setStyleBible] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   async function analyzeVoice() {
@@ -230,15 +239,19 @@ export default function Step3UploadContent({ onComplete, onSkip, initialData }: 
       const response = await fetch('/api/onboarding/analyze-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ posts }),
+        body: JSON.stringify({ posts, rewritePairs, jobDescription }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to analyze voice');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to analyze voice');
       }
 
       const data = await response.json();
       setAnalysis(data.analysis);
+      if (data.styleBible) {
+        setStyleBible(data.styleBible);
+      }
     } catch {
       setError('Failed to analyze voice. You can still continue without analysis.');
     } finally {
@@ -251,6 +264,7 @@ export default function Step3UploadContent({ onComplete, onSkip, initialData }: 
     onComplete({
       uploadedContent: posts,
       voiceAnalysis: analysis || undefined,
+      styleBible: styleBible || undefined,
     });
   }
 

@@ -27,13 +27,16 @@ export const voiceProfiles = pgTable('voice_profiles', {
   // Voice training data
   samplePosts: text('sample_posts').array(),
   uploadedContent: text('uploaded_content').array(),
+  rewriteExercises: jsonb('rewrite_exercises'), // [{original: '', rewrite: '', topic: ''}]
   inspirationAccounts: jsonb('inspiration_accounts'), // {platform: 'linkedin', url: '', what_you_like: ''}[]
   postTypeRatings: jsonb('post_type_ratings'), // {type: 'hot_take', rating: 4}[]
   tonePreferences: jsonb('tone_preferences'), // {professional: 70, conversational: 30}
   topicPerspectives: jsonb('topic_perspectives'), // {topic: 'AI in startups', perspective: '...'}[]
-  
+
   // Learned patterns
-  voiceAnalysis: jsonb('voice_analysis'), // Claude's analysis of their writing
+  voiceAnalysis: jsonb('voice_analysis'), // Claude's structured analysis of their writing
+  styleBible: text('style_bible'), // Free-form ghostwriter brief - the primary voice instruction
+  calibrationFeedback: jsonb('calibration_feedback'), // User's picks from A/B voice calibration
   engagementPreferences: jsonb('engagement_preferences'), // What they actually select
   
   createdAt: timestamp('created_at').defaultNow().notNull(),

@@ -1,9 +1,38 @@
-export function buildVoiceAnalysisPrompt(posts: string[]): string {
+export interface RewritePair {
+  original: string;
+  rewrite: string;
+  topic: string;
+}
+
+/**
+ * Build the prompt for structured voice analysis (dimensions & metrics).
+ * This produces the structured JSON that powers the UI display and
+ * serves as a fallback when a Style Bible isn't available.
+ */
+export function buildVoiceAnalysisPrompt(
+  posts: string[],
+  rewritePairs?: RewritePair[]
+): string {
+  let rewriteSection = '';
+  if (rewritePairs && rewritePairs.length > 0) {
+    rewriteSection = `
+
+REWRITE COMPARISONS (these are especially revealing — the user rewrote generic text in their own voice):
+${rewritePairs.map((pair, i) => `
+--- Rewrite ${i + 1}: ${pair.topic} ---
+GENERIC ORIGINAL: ${pair.original}
+THEIR VERSION: ${pair.rewrite}
+`).join('\n')}
+
+Pay special attention to what changed between the generic version and their rewrite. The DELTA reveals their style instincts: what they add, remove, restructure, and emphasize.`;
+  }
+
   return `
 You are an expert writing style analyst. Analyze these writing samples with extreme precision to create a comprehensive voice fingerprint. Your goal is to capture every nuance so that someone could perfectly replicate this person's writing style.
 
 Writing Samples:
 ${posts.map((post, i) => `\n--- Sample ${i + 1} ---\n${post}`).join('\n')}
+${rewriteSection}
 
 Analyze deeply and return JSON with the following structure. Be SPECIFIC and EVIDENCE-BASED — quote actual phrases from the samples where possible.
 
@@ -81,6 +110,90 @@ Return ONLY valid JSON, no other text.
 `.trim();
 }
 
+/**
+ * Build the prompt for generating a Style Bible — a rich, free-form narrative
+ * document that captures voice in a way structured fields never can.
+ *
+ * This is the PRIMARY voice instruction used in post generation.
+ * Think of it as the document you'd hand a ghostwriter on day one.
+ */
+export function buildStyleBiblePrompt(
+  posts: string[],
+  rewritePairs?: RewritePair[],
+  jobDescription?: string,
+  structuredAnalysis?: Record<string, unknown>
+): string {
+  let rewriteSection = '';
+  if (rewritePairs && rewritePairs.length > 0) {
+    rewriteSection = `
+
+REWRITE COMPARISONS (the user rewrote generic text in their own voice — the differences are gold):
+${rewritePairs.map((pair, i) => `
+--- Rewrite ${i + 1}: ${pair.topic} ---
+GENERIC ORIGINAL: ${pair.original}
+THEIR VERSION: ${pair.rewrite}
+`).join('\n')}`;
+  }
+
+  let analysisHint = '';
+  if (structuredAnalysis) {
+    analysisHint = `
+
+For reference, here is a structured analysis of their writing that was already performed:
+${JSON.stringify(structuredAnalysis, null, 2)}
+
+Use this as a starting point, but go DEEPER. The style bible should capture nuances and connections that structured fields miss.`;
+  }
+
+  return `
+You are the world's best ghostwriter being onboarded to write for a new client. You've been given samples of their writing and need to create your personal "Style Bible" — the document you'll reference every time you write as them.
+
+${jobDescription ? `THE CLIENT: ${jobDescription}` : ''}
+
+THEIR WRITING SAMPLES:
+${posts.map((post, i) => `\n--- Sample ${i + 1} ---\n${post}`).join('\n')}
+${rewriteSection}
+${analysisHint}
+
+Write a comprehensive Style Bible (800-1200 words) structured as follows. Write it as a direct, practical reference document — not an academic analysis. Use second person ("you should", "notice how they") as if briefing another ghostwriter.
+
+## CORE VOICE
+What does this person fundamentally sound like? What's the first thing you'd tell another writer trying to impersonate them? What's the "vibe"?
+
+## RHYTHM & CADENCE
+How do their sentences flow? What's their pacing like? When do they go short vs. long? How do they use line breaks, white space, and paragraph structure? Quote specific examples.
+
+## WORD CHOICES & PHRASES
+What words and phrases are distinctly THEIRS? What vocabulary do they reach for? What words would they NEVER use? What are their go-to transitions, openers, and conversational tics?
+
+## OPINION & STANCE
+How do they take positions? Are they bold or hedged? Contrarian or consensus-building? How do they handle disagreement or controversial topics? Do they lead with "I think" or present things as fact?
+
+## HOOKS & CLOSERS
+How do they open? How do they close? What patterns do they use to grab attention and leave an impression? Quote their actual openings and closings.
+
+## PERSONALITY ON THE PAGE
+What makes them THEM vs. a generic professional? Where does their personality leak through? Humor, vulnerability, confidence, quirks? What would make a reader say "that's definitely [them]"?
+
+## DO's AND DON'Ts
+A concrete checklist:
+- DO: [specific behaviors to replicate]
+- DON'T: [specific things to avoid — what would make it sound fake]
+
+## LINKEDIN vs X
+How should the voice adapt between platforms? What stays the same? What changes?
+
+Write the Style Bible as CONTINUOUS PROSE within each section (not bullet points, unless in the Do's/Don'ts section). Be specific and quote from their writing. This document should be so good that any skilled writer could read it and immediately produce content indistinguishable from the client's own.
+
+Return ONLY the Style Bible text, no other preamble.
+`.trim();
+}
+
+/**
+ * Build voice guidelines from structured analysis.
+ * Used as a supplement to the Style Bible, or as the primary instruction
+ * when no Style Bible is available.
+ */
 export function buildVoiceGuidelines(voiceAnalysis: Record<string, unknown>): string {
   if (!voiceAnalysis) {
     return 'Write in a professional yet approachable tone.';
@@ -303,4 +416,44 @@ export function selectFewShotExamples(
   }
 
   return selected;
+}
+
+/**
+ * Build a prompt to generate calibration posts for A/B voice comparison.
+ * Generates multiple versions so the user can pick "which sounds most like me?"
+ */
+export function buildCalibrationPrompt(
+  styleBible: string,
+  topic: string,
+  platform: 'linkedin' | 'x'
+): string {
+  const platformContext = platform === 'linkedin'
+    ? 'a LinkedIn post (1000-1500 characters, professional but engaging, with line breaks)'
+    : 'an X/Twitter post (under 280 characters, punchy and direct)';
+
+  return `
+You are testing whether you've captured a client's voice correctly. Here is their Style Bible:
+
+${styleBible}
+
+Write 3 DIFFERENT versions of ${platformContext} about this topic: "${topic}"
+
+Each version should:
+- Sound like the same person (the client)
+- Take a slightly different angle or emphasis
+- Version A: Their most characteristic/natural voice
+- Version B: A slightly more polished/professional version
+- Version C: A slightly more casual/punchy version
+
+Return JSON:
+{
+  "versions": [
+    {"label": "A", "content": "..."},
+    {"label": "B", "content": "..."},
+    {"label": "C", "content": "..."}
+  ]
+}
+
+Return ONLY valid JSON, no other text.
+`.trim();
 }

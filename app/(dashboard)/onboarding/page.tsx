@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import ProgressBar from './components/ProgressBar';
 import Step1Foundation, { FoundationData } from './components/Step1_Foundation';
-import Step2SamplePosts from './components/Step2_SamplePosts';
+import Step2SamplePosts, { RewritePair } from './components/Step2_SamplePosts';
 import Step3UploadContent from './components/Step3_UploadContent';
+import StepVoiceCalibration, { CalibrationFeedback } from './components/Step_VoiceCalibration';
 import Step4Inspiration, { InspirationAccount } from './components/Step4_Inspiration';
 import Step5PostTypes, { PostTypeRating } from './components/Step5_PostTypes';
 import Step6ToneCalibration, { TonePreferences } from './components/Step6_ToneCalibration';
@@ -17,8 +18,11 @@ import { calculateProgress, OnboardingStep } from '@/lib/utils/onboarding';
 interface OnboardingData {
   foundation?: FoundationData;
   samplePosts?: string[];
+  rewriteExercises?: RewritePair[];
   uploadedContent?: string[];
   voiceAnalysis?: unknown;
+  styleBible?: string;
+  calibrationFeedback?: CalibrationFeedback[];
   inspirationAccounts?: InspirationAccount[];
   postTypeRatings?: PostTypeRating[];
   tonePreferences?: TonePreferences;
@@ -35,7 +39,7 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
 
   const progress = calculateProgress(completedSteps);
-  const totalSteps = 8;
+  const totalSteps = 9;
 
   // Save progress to backend
   async function saveProgress(newData: OnboardingData, newCompletedSteps: OnboardingStep[]) {
@@ -97,8 +101,8 @@ export default function OnboardingPage() {
     setCurrentStep(2);
   }
 
-  function handleStep2Complete(stepData: { samplePosts: string[] }) {
-    const newData = { ...data, samplePosts: stepData.samplePosts };
+  function handleStep2Complete(stepData: { samplePosts: string[]; rewriteExercises?: RewritePair[] }) {
+    const newData = { ...data, samplePosts: stepData.samplePosts, rewriteExercises: stepData.rewriteExercises };
     const newCompleted = [...completedSteps];
     if (!newCompleted.includes('sample_posts')) {
       newCompleted.push('sample_posts');
@@ -109,8 +113,8 @@ export default function OnboardingPage() {
     setCurrentStep(3);
   }
 
-  function handleStep3Complete(stepData: { uploadedContent: string[]; voiceAnalysis?: unknown }) {
-    const newData = { ...data, uploadedContent: stepData.uploadedContent, voiceAnalysis: stepData.voiceAnalysis };
+  function handleStep3Complete(stepData: { uploadedContent: string[]; voiceAnalysis?: unknown; styleBible?: string }) {
+    const newData = { ...data, uploadedContent: stepData.uploadedContent, voiceAnalysis: stepData.voiceAnalysis, styleBible: stepData.styleBible };
     const newCompleted = [...completedSteps];
     if (!newCompleted.includes('upload_content')) {
       newCompleted.push('upload_content');
@@ -119,6 +123,18 @@ export default function OnboardingPage() {
     setCompletedSteps(newCompleted);
     saveProgress(newData, newCompleted);
     setCurrentStep(4);
+  }
+
+  function handleCalibrationComplete(stepData: { calibrationFeedback: CalibrationFeedback[] }) {
+    const newData = { ...data, calibrationFeedback: stepData.calibrationFeedback };
+    const newCompleted = [...completedSteps];
+    if (!newCompleted.includes('voice_calibration')) {
+      newCompleted.push('voice_calibration');
+    }
+    setData(newData);
+    setCompletedSteps(newCompleted);
+    saveProgress(newData, newCompleted);
+    setCurrentStep(5);
   }
 
   function handleStep4Complete(stepData: { inspirationAccounts: InspirationAccount[] }) {
@@ -130,7 +146,7 @@ export default function OnboardingPage() {
     setData(newData);
     setCompletedSteps(newCompleted);
     saveProgress(newData, newCompleted);
-    setCurrentStep(5);
+    setCurrentStep(6);
   }
 
   function handleStep5Complete(stepData: { postTypeRatings: PostTypeRating[] }) {
@@ -142,7 +158,7 @@ export default function OnboardingPage() {
     setData(newData);
     setCompletedSteps(newCompleted);
     saveProgress(newData, newCompleted);
-    setCurrentStep(6);
+    setCurrentStep(7);
   }
 
   function handleStep6Complete(stepData: { tonePreferences: TonePreferences }) {
@@ -154,7 +170,7 @@ export default function OnboardingPage() {
     setData(newData);
     setCompletedSteps(newCompleted);
     saveProgress(newData, newCompleted);
-    setCurrentStep(7);
+    setCurrentStep(8);
   }
 
   function handleStep7Complete(stepData: { topicPerspectives: TopicPerspective[] }) {
@@ -166,7 +182,7 @@ export default function OnboardingPage() {
     setData(newData);
     setCompletedSteps(newCompleted);
     saveProgress(newData, newCompleted);
-    setCurrentStep(8);
+    setCurrentStep(9);
   }
 
   async function handleStep8Complete(stepData: { sources: SelectedSource[] }) {
@@ -273,34 +289,45 @@ export default function OnboardingPage() {
               onComplete={handleStep3Complete}
               onSkip={handleSkip}
               initialData={data.uploadedContent ? { uploadedContent: data.uploadedContent } : undefined}
+              rewritePairs={data.rewriteExercises}
+              jobDescription={data.foundation?.jobDescription}
             />
           )}
-          
+
           {currentStep === 4 && (
+            <StepVoiceCalibration
+              onComplete={handleCalibrationComplete}
+              onSkip={handleSkip}
+              styleBible={data.styleBible as string | undefined}
+              primaryTopics={data.foundation?.primaryTopics}
+            />
+          )}
+
+          {currentStep === 5 && (
             <Step4Inspiration
               onComplete={handleStep4Complete}
               onSkip={handleSkip}
               initialData={data.inspirationAccounts ? { inspirationAccounts: data.inspirationAccounts } : undefined}
             />
           )}
-          
-          {currentStep === 5 && (
+
+          {currentStep === 6 && (
             <Step5PostTypes
               onComplete={handleStep5Complete}
               onSkip={handleSkip}
               initialData={data.postTypeRatings ? { postTypeRatings: data.postTypeRatings } : undefined}
             />
           )}
-          
-          {currentStep === 6 && (
+
+          {currentStep === 7 && (
             <Step6ToneCalibration
               onComplete={handleStep6Complete}
               onSkip={handleSkip}
               initialData={data.tonePreferences ? { tonePreferences: data.tonePreferences } : undefined}
             />
           )}
-          
-          {currentStep === 7 && (
+
+          {currentStep === 8 && (
             <Step7TopicPerspectives
               onComplete={handleStep7Complete}
               onSkip={handleSkip}
@@ -308,14 +335,14 @@ export default function OnboardingPage() {
               initialData={data.topicPerspectives ? { topicPerspectives: data.topicPerspectives } : undefined}
             />
           )}
-          
-          {currentStep === 8 && (
+
+          {currentStep === 9 && (
             <Step8Sources
               onComplete={handleStep8Complete}
               onSkip={() => {
                 // Complete without sources
                 if (session?.user?.id) {
-                  fetch('/api/onboarding/complete', { 
+                  fetch('/api/onboarding/complete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: session.user.id }),
@@ -329,7 +356,7 @@ export default function OnboardingPage() {
         </div>
 
         {/* Skip to dashboard if enough progress */}
-        {progress >= 65 && currentStep < 7 && (
+        {progress >= 65 && currentStep < 8 && (
           <div className="text-center mt-6">
             <button
               type="button"
