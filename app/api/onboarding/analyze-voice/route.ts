@@ -22,22 +22,23 @@ export async function POST(req: Request) {
     const prompt = buildVoiceAnalysisPrompt(posts);
     const response = await generateWithClaude(prompt);
 
-    // Parse the JSON response
+    // Try to parse JSON, handling potential markdown code blocks
+    let jsonString = response.trim();
+    // Strip markdown code fences if present
+    if (jsonString.startsWith('```')) {
+      jsonString = jsonString.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    }
+
     try {
-      const analysis = JSON.parse(response);
+      const analysis = JSON.parse(jsonString);
       return NextResponse.json({ analysis });
-    } catch {
-      // If JSON parsing fails, return a default analysis
-      return NextResponse.json({
-        analysis: {
-          avgSentenceLength: 15,
-          vocabularyLevel: 'moderate',
-          questionUsage: 'medium',
-          humorLevel: 'subtle',
-          structurePreference: 'mixed',
-          insights: 'Analysis complete. Your writing shows a balanced professional style.',
-        },
-      });
+    } catch (parseError) {
+      console.error('Voice analysis JSON parse error:', parseError);
+      console.error('Raw response:', response.slice(0, 500));
+      return NextResponse.json(
+        { error: 'Voice analysis produced an invalid response. Please try again.' },
+        { status: 502 }
+      );
     }
   } catch (error) {
     console.error('Voice analysis error:', error);
@@ -47,9 +48,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-
-
-
-
-
