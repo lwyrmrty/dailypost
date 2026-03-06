@@ -109,30 +109,35 @@ function restHeaders(accessToken: string) {
     Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
     'X-Restli-Protocol-Version': '2.0.0',
-    'LinkedIn-Version': '202401',
+    'LinkedIn-Version': '202502',
   };
 }
 
 /**
  * Create a new LinkedIn post (text-only).
  * Returns the post URN.
+ *
+ * The `commentary` field supports inline @mentions using the syntax:
+ *   @[Display Name](urn:li:organization:123)   – mention a company
+ *   @[Display Name](urn:li:person:abc)          – mention a person
+ * The display name must match the entity's actual LinkedIn name (case-sensitive
+ * for organizations; partial match OK for people).
  */
 export async function createPost(accessToken: string, authorUrn: string, text: string): Promise<string> {
   const body = {
     author: authorUrn,
+    commentary: text,
+    visibility: 'PUBLIC',
+    distribution: {
+      feedDistribution: 'MAIN_FEED',
+      targetEntities: [],
+      thirdPartyDistributionChannels: [],
+    },
     lifecycleState: 'PUBLISHED',
-    specificContent: {
-      'com.linkedin.ugc.ShareContent': {
-        shareCommentary: { text },
-        shareMediaCategory: 'NONE',
-      },
-    },
-    visibility: {
-      'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
-    },
+    isReshareDisabledByAuthor: false,
   };
 
-  const res = await fetch(`${LINKEDIN_API_BASE}/ugcPosts`, {
+  const res = await fetch(`${LINKEDIN_REST_BASE}/posts`, {
     method: 'POST',
     headers: restHeaders(accessToken),
     body: JSON.stringify(body),
@@ -210,7 +215,8 @@ export async function reactToPost(
 }
 
 /**
- * Reshare a LinkedIn post with commentary.
+ * Reshare a LinkedIn post with optional commentary.
+ * Commentary supports the same @mention syntax as createPost.
  */
 export async function resharePost(
   accessToken: string,
@@ -220,23 +226,21 @@ export async function resharePost(
 ): Promise<string> {
   const body = {
     author: authorUrn,
+    commentary,
+    visibility: 'PUBLIC',
+    distribution: {
+      feedDistribution: 'MAIN_FEED',
+      targetEntities: [],
+      thirdPartyDistributionChannels: [],
+    },
     lifecycleState: 'PUBLISHED',
-    specificContent: {
-      'com.linkedin.ugc.ShareContent': {
-        shareCommentary: { text: commentary },
-        shareMediaCategory: 'NONE',
-      },
-    },
-    visibility: {
-      'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC',
-    },
-    // Reshare reference
+    isReshareDisabledByAuthor: false,
     reshareContext: {
       parent: originalPostUrn,
     },
   };
 
-  const res = await fetch(`${LINKEDIN_API_BASE}/ugcPosts`, {
+  const res = await fetch(`${LINKEDIN_REST_BASE}/posts`, {
     method: 'POST',
     headers: restHeaders(accessToken),
     body: JSON.stringify(body),
