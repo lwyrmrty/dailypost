@@ -5,6 +5,7 @@ import {
   buildVoiceAnalysisPrompt,
   buildStyleBiblePrompt,
   RewritePair,
+  VoiceDiscoveryData,
 } from '@/lib/claude/prompts/voice-analysis';
 
 function parseJsonResponse(response: string): unknown {
@@ -23,10 +24,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { posts, rewritePairs, jobDescription } = await req.json() as {
+    const { posts, rewritePairs, jobDescription, voiceDiscovery } = await req.json() as {
       posts: string[];
       rewritePairs?: RewritePair[];
       jobDescription?: string;
+      voiceDiscovery?: VoiceDiscoveryData;
     };
 
     if (!posts || posts.length < 5) {
@@ -37,7 +39,7 @@ export async function POST(req: Request) {
     }
 
     // Run structured analysis and Style Bible generation in parallel
-    const analysisPrompt = buildVoiceAnalysisPrompt(posts, rewritePairs);
+    const analysisPrompt = buildVoiceAnalysisPrompt(posts, rewritePairs, voiceDiscovery);
 
     let analysis: Record<string, unknown> | null = null;
     let styleBible: string | null = null;
@@ -60,7 +62,8 @@ export async function POST(req: Request) {
         posts,
         rewritePairs,
         jobDescription,
-        analysis || undefined
+        analysis || undefined,
+        voiceDiscovery
       );
       styleBible = await generateWithClaude(styleBiblePrompt);
     } catch (error) {

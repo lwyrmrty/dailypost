@@ -23,14 +23,16 @@ export const voiceProfiles = pgTable('voice_profiles', {
   postingGoals: text('posting_goals').array(),
   primaryTopics: text('primary_topics').array(),
   avoidTopics: text('avoid_topics').array(),
-  
-  // Voice training data
+  postingExperience: text('posting_experience'), // 'new' | 'occasional' | 'regular'
+
+  // Voice discovery & training data
+  voiceDiscovery: jsonb('voice_discovery'), // A/B style preference picks {picks: [], summary: {}}
   samplePosts: text('sample_posts').array(),
   uploadedContent: text('uploaded_content').array(),
   rewriteExercises: jsonb('rewrite_exercises'), // [{original: '', rewrite: '', topic: ''}]
   inspirationAccounts: jsonb('inspiration_accounts'), // {platform: 'linkedin', url: '', what_you_like: ''}[]
   postTypeRatings: jsonb('post_type_ratings'), // {type: 'hot_take', rating: 4}[]
-  tonePreferences: jsonb('tone_preferences'), // {professional: 70, conversational: 30}
+  tonePreferences: jsonb('tone_preferences'), // Legacy — replaced by voiceDiscovery
   topicPerspectives: jsonb('topic_perspectives'), // {topic: 'AI in startups', perspective: '...'}[]
 
   // Learned patterns

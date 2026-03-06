@@ -5,18 +5,19 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import ProgressBar from './components/ProgressBar';
 import Step1Foundation, { FoundationData } from './components/Step1_Foundation';
+import StepVoiceDiscovery, { VoiceDiscoveryPreferences } from './components/Step_VoiceDiscovery';
 import Step2SamplePosts, { RewritePair } from './components/Step2_SamplePosts';
 import Step3UploadContent from './components/Step3_UploadContent';
 import StepVoiceCalibration, { CalibrationFeedback } from './components/Step_VoiceCalibration';
 import Step4Inspiration, { InspirationAccount } from './components/Step4_Inspiration';
 import Step5PostTypes, { PostTypeRating } from './components/Step5_PostTypes';
-import Step6ToneCalibration, { TonePreferences } from './components/Step6_ToneCalibration';
 import Step7TopicPerspectives, { TopicPerspective } from './components/Step7_TopicPerspectives';
 import Step8Sources, { SelectedSource } from './components/Step8_Sources';
 import { calculateProgress, OnboardingStep } from '@/lib/utils/onboarding';
 
 interface OnboardingData {
   foundation?: FoundationData;
+  voiceDiscovery?: VoiceDiscoveryPreferences;
   samplePosts?: string[];
   rewriteExercises?: RewritePair[];
   uploadedContent?: string[];
@@ -25,7 +26,6 @@ interface OnboardingData {
   calibrationFeedback?: CalibrationFeedback[];
   inspirationAccounts?: InspirationAccount[];
   postTypeRatings?: PostTypeRating[];
-  tonePreferences?: TonePreferences;
   topicPerspectives?: TopicPerspective[];
   sources?: SelectedSource[];
 }
@@ -89,112 +89,72 @@ export default function OnboardingPage() {
     loadProgress();
   }, [session]);
 
+  // Step flow:
+  // 1: Foundation  2: Voice Discovery  3: Rewrite Exercise  4: Upload Content
+  // 5: Voice Calibration  6: Inspiration  7: Post Types  8: Topic Perspectives  9: Sources
+
+  function completeStep(stepKey: OnboardingStep, newData: OnboardingData, nextStep: number) {
+    const newCompleted = [...completedSteps];
+    if (!newCompleted.includes(stepKey)) {
+      newCompleted.push(stepKey);
+    }
+    setData(newData);
+    setCompletedSteps(newCompleted);
+    saveProgress(newData, newCompleted);
+    setCurrentStep(nextStep);
+  }
+
   function handleStep1Complete(foundationData: FoundationData) {
-    const newData = { ...data, foundation: foundationData };
-    const newCompleted = [...completedSteps];
-    if (!newCompleted.includes('foundation')) {
-      newCompleted.push('foundation');
-    }
-    setData(newData);
-    setCompletedSteps(newCompleted);
-    saveProgress(newData, newCompleted);
-    setCurrentStep(2);
+    completeStep('foundation', { ...data, foundation: foundationData }, 2);
   }
 
-  function handleStep2Complete(stepData: { samplePosts: string[]; rewriteExercises?: RewritePair[] }) {
-    const newData = { ...data, samplePosts: stepData.samplePosts, rewriteExercises: stepData.rewriteExercises };
-    const newCompleted = [...completedSteps];
-    if (!newCompleted.includes('sample_posts')) {
-      newCompleted.push('sample_posts');
-    }
-    setData(newData);
-    setCompletedSteps(newCompleted);
-    saveProgress(newData, newCompleted);
-    setCurrentStep(3);
+  function handleVoiceDiscoveryComplete(stepData: { voiceDiscovery: VoiceDiscoveryPreferences }) {
+    completeStep('voice_discovery', { ...data, voiceDiscovery: stepData.voiceDiscovery }, 3);
   }
 
-  function handleStep3Complete(stepData: { uploadedContent: string[]; voiceAnalysis?: unknown; styleBible?: string }) {
-    const newData = { ...data, uploadedContent: stepData.uploadedContent, voiceAnalysis: stepData.voiceAnalysis, styleBible: stepData.styleBible };
-    const newCompleted = [...completedSteps];
-    if (!newCompleted.includes('upload_content')) {
-      newCompleted.push('upload_content');
-    }
-    setData(newData);
-    setCompletedSteps(newCompleted);
-    saveProgress(newData, newCompleted);
-    setCurrentStep(4);
+  function handleRewriteComplete(stepData: { samplePosts: string[]; rewriteExercises?: RewritePair[] }) {
+    completeStep('sample_posts', {
+      ...data,
+      samplePosts: stepData.samplePosts,
+      rewriteExercises: stepData.rewriteExercises,
+    }, 4);
+  }
+
+  function handleUploadComplete(stepData: { uploadedContent: string[]; voiceAnalysis?: unknown; styleBible?: string }) {
+    completeStep('upload_content', {
+      ...data,
+      uploadedContent: stepData.uploadedContent,
+      voiceAnalysis: stepData.voiceAnalysis,
+      styleBible: stepData.styleBible,
+    }, 5);
   }
 
   function handleCalibrationComplete(stepData: { calibrationFeedback: CalibrationFeedback[] }) {
-    const newData = { ...data, calibrationFeedback: stepData.calibrationFeedback };
-    const newCompleted = [...completedSteps];
-    if (!newCompleted.includes('voice_calibration')) {
-      newCompleted.push('voice_calibration');
-    }
-    setData(newData);
-    setCompletedSteps(newCompleted);
-    saveProgress(newData, newCompleted);
-    setCurrentStep(5);
+    completeStep('voice_calibration', { ...data, calibrationFeedback: stepData.calibrationFeedback }, 6);
   }
 
-  function handleStep4Complete(stepData: { inspirationAccounts: InspirationAccount[] }) {
-    const newData = { ...data, inspirationAccounts: stepData.inspirationAccounts };
-    const newCompleted = [...completedSteps];
-    if (!newCompleted.includes('inspiration')) {
-      newCompleted.push('inspiration');
-    }
-    setData(newData);
-    setCompletedSteps(newCompleted);
-    saveProgress(newData, newCompleted);
-    setCurrentStep(6);
+  function handleInspirationComplete(stepData: { inspirationAccounts: InspirationAccount[] }) {
+    completeStep('inspiration', { ...data, inspirationAccounts: stepData.inspirationAccounts }, 7);
   }
 
-  function handleStep5Complete(stepData: { postTypeRatings: PostTypeRating[] }) {
-    const newData = { ...data, postTypeRatings: stepData.postTypeRatings };
-    const newCompleted = [...completedSteps];
-    if (!newCompleted.includes('post_types')) {
-      newCompleted.push('post_types');
-    }
-    setData(newData);
-    setCompletedSteps(newCompleted);
-    saveProgress(newData, newCompleted);
-    setCurrentStep(7);
+  function handlePostTypesComplete(stepData: { postTypeRatings: PostTypeRating[] }) {
+    completeStep('post_types', { ...data, postTypeRatings: stepData.postTypeRatings }, 8);
   }
 
-  function handleStep6Complete(stepData: { tonePreferences: TonePreferences }) {
-    const newData = { ...data, tonePreferences: stepData.tonePreferences };
-    const newCompleted = [...completedSteps];
-    if (!newCompleted.includes('tone')) {
-      newCompleted.push('tone');
-    }
-    setData(newData);
-    setCompletedSteps(newCompleted);
-    saveProgress(newData, newCompleted);
-    setCurrentStep(8);
+  function handlePerspectivesComplete(stepData: { topicPerspectives: TopicPerspective[] }) {
+    completeStep('perspectives', { ...data, topicPerspectives: stepData.topicPerspectives }, 9);
   }
 
-  function handleStep7Complete(stepData: { topicPerspectives: TopicPerspective[] }) {
-    const newData = { ...data, topicPerspectives: stepData.topicPerspectives };
-    const newCompleted = [...completedSteps];
-    if (!newCompleted.includes('perspectives')) {
-      newCompleted.push('perspectives');
-    }
-    setData(newData);
-    setCompletedSteps(newCompleted);
-    saveProgress(newData, newCompleted);
-    setCurrentStep(9);
-  }
-
-  async function handleStep8Complete(stepData: { sources: SelectedSource[] }) {
-    const newData = { ...data, sources: stepData.sources };
+  async function handleSourcesComplete(stepData: { sources: SelectedSource[] }) {
+    const newData2 = { ...data, sources: stepData.sources };
     const newCompleted = [...completedSteps];
     if (!newCompleted.includes('sources')) {
       newCompleted.push('sources');
     }
-    setData(newData);
+    setData(newData2);
     setCompletedSteps(newCompleted);
-    await saveProgress(newData, newCompleted);
-    
+    await saveProgress(newData2, newCompleted);
+
     // Save sources to database
     if (session?.user?.id && stepData.sources.length > 0) {
       for (const source of stepData.sources) {
@@ -270,31 +230,42 @@ export default function OnboardingPage() {
         {/* Steps */}
         <div className="bg-white rounded-2xl shadow-sm p-8">
           {currentStep === 1 && (
-            <Step1Foundation 
+            <Step1Foundation
               onComplete={handleStep1Complete}
               initialData={data.foundation}
             />
           )}
-          
+
           {currentStep === 2 && (
-            <Step2SamplePosts
-              onComplete={handleStep2Complete}
+            <StepVoiceDiscovery
+              onComplete={handleVoiceDiscoveryComplete}
               onSkip={handleSkip}
-              initialData={data.samplePosts ? { samplePosts: data.samplePosts } : undefined}
+              initialData={data.voiceDiscovery ? { voiceDiscovery: data.voiceDiscovery } : undefined}
             />
           )}
-          
+
           {currentStep === 3 && (
-            <Step3UploadContent
-              onComplete={handleStep3Complete}
+            <Step2SamplePosts
+              onComplete={handleRewriteComplete}
               onSkip={handleSkip}
-              initialData={data.uploadedContent ? { uploadedContent: data.uploadedContent } : undefined}
-              rewritePairs={data.rewriteExercises}
-              jobDescription={data.foundation?.jobDescription}
+              initialData={data.samplePosts ? { samplePosts: data.samplePosts } : undefined}
+              postingExperience={data.foundation?.postingExperience}
             />
           )}
 
           {currentStep === 4 && (
+            <Step3UploadContent
+              onComplete={handleUploadComplete}
+              onSkip={handleSkip}
+              initialData={data.uploadedContent ? { uploadedContent: data.uploadedContent } : undefined}
+              rewritePairs={data.rewriteExercises}
+              jobDescription={data.foundation?.jobDescription}
+              postingExperience={data.foundation?.postingExperience}
+              voiceDiscovery={data.voiceDiscovery}
+            />
+          )}
+
+          {currentStep === 5 && (
             <StepVoiceCalibration
               onComplete={handleCalibrationComplete}
               onSkip={handleSkip}
@@ -303,33 +274,25 @@ export default function OnboardingPage() {
             />
           )}
 
-          {currentStep === 5 && (
+          {currentStep === 6 && (
             <Step4Inspiration
-              onComplete={handleStep4Complete}
+              onComplete={handleInspirationComplete}
               onSkip={handleSkip}
               initialData={data.inspirationAccounts ? { inspirationAccounts: data.inspirationAccounts } : undefined}
             />
           )}
 
-          {currentStep === 6 && (
+          {currentStep === 7 && (
             <Step5PostTypes
-              onComplete={handleStep5Complete}
+              onComplete={handlePostTypesComplete}
               onSkip={handleSkip}
               initialData={data.postTypeRatings ? { postTypeRatings: data.postTypeRatings } : undefined}
             />
           )}
 
-          {currentStep === 7 && (
-            <Step6ToneCalibration
-              onComplete={handleStep6Complete}
-              onSkip={handleSkip}
-              initialData={data.tonePreferences ? { tonePreferences: data.tonePreferences } : undefined}
-            />
-          )}
-
           {currentStep === 8 && (
             <Step7TopicPerspectives
-              onComplete={handleStep7Complete}
+              onComplete={handlePerspectivesComplete}
               onSkip={handleSkip}
               primaryTopics={data.foundation?.primaryTopics || []}
               initialData={data.topicPerspectives ? { topicPerspectives: data.topicPerspectives } : undefined}
@@ -338,9 +301,8 @@ export default function OnboardingPage() {
 
           {currentStep === 9 && (
             <Step8Sources
-              onComplete={handleStep8Complete}
+              onComplete={handleSourcesComplete}
               onSkip={() => {
-                // Complete without sources
                 if (session?.user?.id) {
                   fetch('/api/onboarding/complete', {
                     method: 'POST',

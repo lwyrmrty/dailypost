@@ -4,6 +4,46 @@ export interface RewritePair {
   topic: string;
 }
 
+export interface VoiceDiscoveryData {
+  picks: Array<{
+    dimension: string;
+    chosenTrait: string;
+    confidence: 'strong' | 'slight';
+  }>;
+  summary: Record<string, string>;
+}
+
+const TRAIT_DESCRIPTIONS: Record<string, string> = {
+  bold_contrarian: 'Takes bold, direct positions. Challenges conventional wisdom. Not afraid to be provocative.',
+  balanced_nuanced: 'Presents balanced, nuanced takes. Acknowledges multiple sides. Measured and thoughtful.',
+  data_driven: 'Leads with data, numbers, and evidence. Analytical. Uses specific metrics to make points.',
+  narrative_storytelling: 'Leads with stories and narratives. Uses anecdotes and personal experiences to illustrate points.',
+  formal_polished: 'Professional, polished tone. Carefully worded. Industry-appropriate language.',
+  casual_conversational: 'Casual, conversational style. Writes like talking to a friend. Uses contractions and colloquialisms.',
+  uses_humor: 'Incorporates wit and humor. Playful tone. Uses self-deprecation and clever observations.',
+  straight_serious: 'Straightforward and serious. Focuses on substance. Minimal humor or personality flourishes.',
+  concise_punchy: 'Short, punchy style. One thought per line. Values brevity. Gets to the point fast.',
+  detailed_thorough: 'Detailed, thorough style. Develops ideas fully. Uses examples and explanations.',
+  opinionated_declarative: 'Strongly opinionated. Makes declarations. Uses definitive language ("Full stop.", "Bet on it.").',
+  curious_socratic: 'Asks questions. Explores ideas. Invites conversation. Uses "What if?" and "I wonder..." framing.',
+};
+
+function buildDiscoverySection(discovery: VoiceDiscoveryData): string {
+  if (!discovery || !discovery.picks || discovery.picks.length === 0) return '';
+
+  const lines = discovery.picks.map(pick => {
+    const desc = TRAIT_DESCRIPTIONS[pick.chosenTrait] || pick.chosenTrait;
+    const strength = pick.confidence === 'strong' ? 'STRONGLY prefers' : 'Slightly prefers';
+    return `- ${pick.dimension}: ${strength}: ${desc}`;
+  });
+
+  return `
+VOICE PREFERENCES (the user chose these in A/B style comparisons — this reveals their aspirational voice):
+${lines.join('\n')}
+
+These preferences are especially important if writing samples are limited. They represent how the user WANTS to sound.`;
+}
+
 /**
  * Build the prompt for structured voice analysis (dimensions & metrics).
  * This produces the structured JSON that powers the UI display and
@@ -11,8 +51,11 @@ export interface RewritePair {
  */
 export function buildVoiceAnalysisPrompt(
   posts: string[],
-  rewritePairs?: RewritePair[]
+  rewritePairs?: RewritePair[],
+  voiceDiscovery?: VoiceDiscoveryData
 ): string {
+  const discoverySection = voiceDiscovery ? buildDiscoverySection(voiceDiscovery) : '';
+
   let rewriteSection = '';
   if (rewritePairs && rewritePairs.length > 0) {
     rewriteSection = `
@@ -33,6 +76,7 @@ You are an expert writing style analyst. Analyze these writing samples with extr
 Writing Samples:
 ${posts.map((post, i) => `\n--- Sample ${i + 1} ---\n${post}`).join('\n')}
 ${rewriteSection}
+${discoverySection}
 
 Analyze deeply and return JSON with the following structure. Be SPECIFIC and EVIDENCE-BASED — quote actual phrases from the samples where possible.
 
@@ -121,8 +165,10 @@ export function buildStyleBiblePrompt(
   posts: string[],
   rewritePairs?: RewritePair[],
   jobDescription?: string,
-  structuredAnalysis?: Record<string, unknown>
+  structuredAnalysis?: Record<string, unknown>,
+  voiceDiscovery?: VoiceDiscoveryData
 ): string {
+  const discoverySection = voiceDiscovery ? buildDiscoverySection(voiceDiscovery) : '';
   let rewriteSection = '';
   if (rewritePairs && rewritePairs.length > 0) {
     rewriteSection = `
@@ -153,8 +199,10 @@ ${jobDescription ? `THE CLIENT: ${jobDescription}` : ''}
 THEIR WRITING SAMPLES:
 ${posts.map((post, i) => `\n--- Sample ${i + 1} ---\n${post}`).join('\n')}
 ${rewriteSection}
+${discoverySection}
 ${analysisHint}
 
+${posts.length < 5 && discoverySection ? `IMPORTANT: This client has limited writing samples. Lean heavily on their voice discovery preferences (above) to shape the Style Bible. The preferences represent how they WANT to sound, even if they haven't written much yet. Build the Style Bible around their aspirational voice.\n` : ''}
 Write a comprehensive Style Bible (800-1200 words) structured as follows. Write it as a direct, practical reference document — not an academic analysis. Use second person ("you should", "notice how they") as if briefing another ghostwriter.
 
 ## CORE VOICE

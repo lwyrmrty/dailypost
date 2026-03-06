@@ -8,9 +8,24 @@ interface NewsStory {
   topic?: string;
 }
 
+const TRAIT_LABELS: Record<string, string> = {
+  bold_contrarian: 'Bold and contrarian — take strong, provocative positions',
+  balanced_nuanced: 'Balanced and nuanced — acknowledge multiple sides thoughtfully',
+  data_driven: 'Data-driven — lead with numbers, metrics, and evidence',
+  narrative_storytelling: 'Storytelling — lead with narratives, anecdotes, and personal experiences',
+  formal_polished: 'Polished and professional in tone',
+  casual_conversational: 'Casual and conversational — write like talking to a smart friend',
+  uses_humor: 'Use wit and humor naturally — dry observations, playful asides',
+  straight_serious: 'Straightforward and serious — substance over style',
+  concise_punchy: 'Concise and punchy — short sentences, one thought per line, get to the point',
+  detailed_thorough: 'Detailed and thorough — develop ideas fully with examples',
+  opinionated_declarative: 'Opinionated and declarative — make clear statements, no hedging',
+  curious_socratic: 'Question-driven — explore ideas by asking questions, invite conversation',
+};
+
 /**
  * Build the voice instruction section, preferring the Style Bible over structured guidelines.
- * The Style Bible is a rich narrative document; structured guidelines are a fallback.
+ * Falls back to voice discovery preferences for aspirational users with no writing samples.
  */
 function buildVoiceSection(profile: Partial<VoiceProfile>): string {
   const styleBible = profile.styleBible as string | null;
@@ -20,11 +35,30 @@ ${styleBible}`;
   }
 
   // Fallback to structured voice guidelines
-  const voiceGuidelines = buildVoiceGuidelines(
-    profile.voiceAnalysis as Record<string, unknown> || {}
-  );
-  return `VOICE GUIDELINES:
+  const voiceAnalysis = profile.voiceAnalysis as Record<string, unknown> | null;
+  if (voiceAnalysis) {
+    const voiceGuidelines = buildVoiceGuidelines(voiceAnalysis);
+    return `VOICE GUIDELINES:
 ${voiceGuidelines}`;
+  }
+
+  // Last resort: voice discovery preferences (for aspirational users with no writing)
+  const discovery = profile.voiceDiscovery as { picks?: Array<{ chosenTrait: string; confidence: string }> } | null;
+  if (discovery?.picks && discovery.picks.length > 0) {
+    const traits = discovery.picks
+      .map(p => {
+        const label = TRAIT_LABELS[p.chosenTrait] || p.chosenTrait;
+        return p.confidence === 'strong' ? `- ${label}` : `- ${label} (slight preference)`;
+      })
+      .join('\n');
+
+    return `VOICE PREFERENCES (this user is building their voice — match these aspirational preferences):
+${traits}
+
+Combine these preferences into a coherent, natural-sounding voice. Don't treat each as an isolated instruction — blend them into a unified persona.`;
+  }
+
+  return 'Write in a professional yet approachable tone.';
 }
 
 function buildWritingSamplesSection(profile: Partial<VoiceProfile>, platform: 'linkedin' | 'x'): string {

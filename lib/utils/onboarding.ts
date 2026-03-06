@@ -1,22 +1,22 @@
 export type OnboardingStep =
   | 'foundation'
+  | 'voice_discovery'
   | 'sample_posts'
   | 'upload_content'
   | 'voice_calibration'
   | 'inspiration'
   | 'post_types'
-  | 'tone'
   | 'perspectives'
   | 'sources';
 
 export const STEP_WEIGHTS: Record<OnboardingStep, number> = {
-  foundation: 16,        // Required
+  foundation: 14,        // Required
+  voice_discovery: 14,   // A/B style preference picks — critical for aspirational users
   sample_posts: 10,      // Rewrite exercise
-  upload_content: 14,    // Voice analysis + Style Bible
+  upload_content: 12,    // Voice analysis + Style Bible
   voice_calibration: 10, // A/B calibration
   inspiration: 8,
   post_types: 10,
-  tone: 10,
   perspectives: 10,
   sources: 12,           // Important for content generation
 };
@@ -38,12 +38,12 @@ export function canGeneratePosts(progress: number): boolean {
 export function getStepNumber(step: OnboardingStep): number {
   const steps: OnboardingStep[] = [
     'foundation',
+    'voice_discovery',
     'sample_posts',
     'upload_content',
     'voice_calibration',
     'inspiration',
     'post_types',
-    'tone',
     'perspectives',
     'sources',
   ];
@@ -53,12 +53,12 @@ export function getStepNumber(step: OnboardingStep): number {
 export function getStepName(step: OnboardingStep): string {
   const names: Record<OnboardingStep, string> = {
     foundation: 'Foundation',
+    voice_discovery: 'Voice Discovery',
     sample_posts: 'Rewrite Exercise',
     upload_content: 'Upload Content',
     voice_calibration: 'Voice Calibration',
     inspiration: 'Inspiration',
     post_types: 'Post Types',
-    tone: 'Tone',
     perspectives: 'Perspectives',
     sources: 'News Sources',
   };
@@ -68,12 +68,12 @@ export function getStepName(step: OnboardingStep): string {
 export function getNextStep(currentStep: OnboardingStep): OnboardingStep | null {
   const steps: OnboardingStep[] = [
     'foundation',
+    'voice_discovery',
     'sample_posts',
     'upload_content',
     'voice_calibration',
     'inspiration',
     'post_types',
-    'tone',
     'perspectives',
     'sources',
   ];
@@ -89,12 +89,12 @@ export function getNextStep(currentStep: OnboardingStep): OnboardingStep | null 
 export function getPreviousStep(currentStep: OnboardingStep): OnboardingStep | null {
   const steps: OnboardingStep[] = [
     'foundation',
+    'voice_discovery',
     'sample_posts',
     'upload_content',
     'voice_calibration',
     'inspiration',
     'post_types',
-    'tone',
     'perspectives',
     'sources',
   ];

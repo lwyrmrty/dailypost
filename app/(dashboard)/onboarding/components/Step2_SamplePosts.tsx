@@ -24,6 +24,7 @@ interface Step2Props {
   onComplete: (data: { samplePosts: string[]; rewriteExercises: RewritePair[] }) => void;
   onSkip: () => void;
   initialData?: { samplePosts: string[] };
+  postingExperience?: 'new' | 'occasional' | 'regular';
 }
 
 export interface RewritePair {
@@ -32,7 +33,10 @@ export interface RewritePair {
   topic: string;
 }
 
-export default function Step2SamplePosts({ onComplete, onSkip, initialData }: Step2Props) {
+export default function Step2SamplePosts({ onComplete, onSkip, initialData, postingExperience }: Step2Props) {
+  const isNew = postingExperience === 'new';
+  const minRequired = isNew ? 1 : 2;
+
   const [rewrites, setRewrites] = useState<Record<number, string>>(
     initialData?.samplePosts?.reduce((acc, post, idx) => ({ ...acc, [idx]: post }), {}) || {}
   );
@@ -53,7 +57,7 @@ export default function Step2SamplePosts({ onComplete, onSkip, initialData }: St
       }
     });
 
-    if (pairs.length >= 2) {
+    if (pairs.length >= minRequired) {
       onComplete({ samplePosts: posts, rewriteExercises: pairs });
     }
   }
@@ -64,14 +68,29 @@ export default function Step2SamplePosts({ onComplete, onSkip, initialData }: St
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
         <h2 className="text-2xl font-bold mb-2">Rewrite in your voice</h2>
-        <p className="text-gray-600">
-          Below are generic, AI-sounding posts. Rewrite at least 2 of them the way
-          <strong> you</strong> would actually say it. Don&apos;t worry about the topic &mdash;
-          we&apos;re learning <em>how</em> you write, not <em>what</em> you write about.
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          Change the tone, restructure, add personality, be opinionated &mdash; make it yours.
-        </p>
+        {isNew ? (
+          <>
+            <p className="text-gray-600">
+              No worries if you don&apos;t post much yet. Take one of these generic posts
+              and rewrite it how <strong>you&apos;d want to say it</strong>. This helps us
+              understand the voice you&apos;re going for.
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              Think about the style choices you made in the previous step. Try writing in that voice.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="text-gray-600">
+              Below are generic, AI-sounding posts. Rewrite at least {minRequired} of them the way
+              <strong> you</strong> would actually say it. Don&apos;t worry about the topic &mdash;
+              we&apos;re learning <em>how</em> you write, not <em>what</em> you write about.
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              Change the tone, restructure, add personality, be opinionated &mdash; make it yours.
+            </p>
+          </>
+        )}
       </div>
 
       {REWRITE_EXERCISES.map((exercise, idx) => (
@@ -119,10 +138,10 @@ export default function Step2SamplePosts({ onComplete, onSkip, initialData }: St
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={completedCount < 2}
+          disabled={completedCount < minRequired}
           className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
         >
-          Continue ({completedCount}/2 minimum)
+          Continue ({completedCount}/{minRequired} minimum)
         </button>
       </div>
     </div>

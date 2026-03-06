@@ -61,12 +61,23 @@ interface RewritePair {
   topic: string;
 }
 
+interface VoiceDiscoveryData {
+  picks: Array<{
+    dimension: string;
+    chosenTrait: string;
+    confidence: 'strong' | 'slight';
+  }>;
+  summary: Record<string, string>;
+}
+
 interface Step3Props {
   onComplete: (data: { uploadedContent: string[]; voiceAnalysis?: VoiceAnalysis; styleBible?: string }) => void;
   onSkip: () => void;
   initialData?: { uploadedContent: string[] };
   rewritePairs?: RewritePair[];
   jobDescription?: string;
+  postingExperience?: 'new' | 'occasional' | 'regular';
+  voiceDiscovery?: VoiceDiscoveryData;
 }
 
 function AnalysisDisplay({ analysis }: { analysis: VoiceAnalysis }) {
@@ -222,7 +233,8 @@ function AnalysisDisplay({ analysis }: { analysis: VoiceAnalysis }) {
   );
 }
 
-export default function Step3UploadContent({ onComplete, onSkip, initialData, rewritePairs, jobDescription }: Step3Props) {
+export default function Step3UploadContent({ onComplete, onSkip, initialData, rewritePairs, jobDescription, postingExperience, voiceDiscovery }: Step3Props) {
+  const isNew = postingExperience === 'new';
   const [content, setContent] = useState(initialData?.uploadedContent?.join('\n\n---\n\n') || '');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<VoiceAnalysis | null>(null);
@@ -239,7 +251,7 @@ export default function Step3UploadContent({ onComplete, onSkip, initialData, re
       const response = await fetch('/api/onboarding/analyze-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ posts, rewritePairs, jobDescription }),
+        body: JSON.stringify({ posts, rewritePairs, jobDescription, voiceDiscovery }),
       });
 
       if (!response.ok) {
@@ -273,12 +285,28 @@ export default function Step3UploadContent({ onComplete, onSkip, initialData, re
   return (
     <div className="max-w-3xl mx-auto space-y-8">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Upload past content</h2>
-        <p className="text-gray-600">
-          Paste 10-20 of your past posts, articles, or professional writing.
-          This helps us deeply understand your voice. The more samples you provide,
-          the more accurately we can match your style.
-        </p>
+        <h2 className="text-2xl font-bold mb-2">
+          {isNew ? 'Got any past writing?' : 'Upload past content'}
+        </h2>
+        {isNew ? (
+          <div className="space-y-2">
+            <p className="text-gray-600">
+              If you have any writing at all &mdash; posts, emails, Slack messages, articles,
+              even long comments &mdash; paste it here. It helps, but it&apos;s totally fine to skip
+              this. We&apos;ll build your voice from your style preferences instead.
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              Don&apos;t have past content? No problem. We&apos;ll use your voice discovery
+              picks and rewrite exercises to shape your style. You can always refine it later.
+            </div>
+          </div>
+        ) : (
+          <p className="text-gray-600">
+            Paste 10-20 of your past posts, articles, or professional writing.
+            This helps us deeply understand your voice. The more samples you provide,
+            the more accurately we can match your style.
+          </p>
+        )}
       </div>
 
       <div>

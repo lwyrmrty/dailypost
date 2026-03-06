@@ -13,6 +13,7 @@ export interface FoundationData {
   primaryTopics: string[];
   avoidTopics: string[];
   postingGoals: string[];
+  postingExperience: 'new' | 'occasional' | 'regular';
 }
 
 export default function Step1Foundation({ onComplete, initialData }: Step1Props) {
@@ -20,6 +21,9 @@ export default function Step1Foundation({ onComplete, initialData }: Step1Props)
   const [primaryTopics, setPrimaryTopics] = useState<string[]>(initialData?.primaryTopics || []);
   const [avoidTopics, setAvoidTopics] = useState<string[]>(initialData?.avoidTopics || []);
   const [postingGoals, setPostingGoals] = useState<string[]>(initialData?.postingGoals || []);
+  const [postingExperience, setPostingExperience] = useState<'new' | 'occasional' | 'regular'>(
+    initialData?.postingExperience || 'occasional'
+  );
   const [customTopic, setCustomTopic] = useState('');
 
   function toggleTopic(topic: string, isPrimary: boolean) {
@@ -57,7 +61,7 @@ export default function Step1Foundation({ onComplete, initialData }: Step1Props)
 
   function handleSubmit() {
     if (jobDescription && primaryTopics.length > 0) {
-      onComplete({ jobDescription, primaryTopics, avoidTopics, postingGoals });
+      onComplete({ jobDescription, primaryTopics, avoidTopics, postingGoals, postingExperience });
     }
   }
 
@@ -82,6 +86,34 @@ export default function Step1Foundation({ onComplete, initialData }: Step1Props)
           className="w-full border border-gray-300 rounded-lg p-3 h-24 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           required
         />
+      </div>
+
+      {/* Posting Experience */}
+      <div>
+        <label className="block text-sm font-medium mb-3">
+          How often do you currently post on LinkedIn/X?
+        </label>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {[
+            { value: 'new' as const, label: 'Just getting started', desc: 'I rarely or never post — I want to build a presence' },
+            { value: 'occasional' as const, label: 'Sometimes', desc: 'I post occasionally but want to be more consistent' },
+            { value: 'regular' as const, label: 'Regularly', desc: 'I post frequently and have an established voice' },
+          ].map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setPostingExperience(option.value)}
+              className={`p-4 rounded-lg border text-left transition-colors ${
+                postingExperience === option.value
+                  ? 'bg-blue-50 border-blue-500'
+                  : 'bg-white border-gray-300 hover:border-gray-400'
+              }`}
+            >
+              <div className="font-medium">{option.label}</div>
+              <div className="text-sm text-gray-600">{option.desc}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Posting Goals */}
