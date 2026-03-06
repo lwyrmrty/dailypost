@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
@@ -72,13 +73,25 @@ function detectSourceType(url: string): SourceType {
   return 'rss';
 }
 
+interface LinkedInStatus {
+  connected: boolean;
+  expired?: boolean;
+  displayName?: string;
+  profileUrl?: string;
+  expiresAt?: string;
+}
+
 export default function SettingsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [data, setData] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+  const [linkedinStatus, setLinkedinStatus] = useState<LinkedInStatus | null>(null);
+  const [linkedinMessage, setLinkedinMessage] = useState('');
+  const [disconnecting, setDisconnecting] = useState(false);
+
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -105,13 +118,32 @@ export default function SettingsPage() {
     }
   }, [session, status]);
 
+  const fetchLinkedInStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/linkedin/status');
+      const statusData = await res.json();
+      setLinkedinStatus(statusData);
+    } catch {
+      setLinkedinStatus({ connected: false });
+    }
+  }, []);
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
       return;
     }
     fetchData();
-  }, [status, router, fetchData]);
+    fetchLinkedInStatus();
+
+    // Show LinkedIn connection result from OAuth callback
+    const linkedinParam = searchParams.get('linkedin');
+    if (linkedinParam === 'connected') {
+      setLinkedinMessage('LinkedIn connected successfully!');
+    } else if (linkedinParam === 'error') {
+      setLinkedinMessage('Failed to connect LinkedIn. Please try again.');
+    }
+  }, [status, router, fetchData, fetchLinkedInStatus, searchParams]);
 
   const handleAddSource = async (sourceData: {
     sourceUrl: string;
@@ -189,6 +221,20 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDisconnectLinkedIn = async () => {
+    if (!confirm('Disconnect your LinkedIn account?')) return;
+    setDisconnecting(true);
+    try {
+      await fetch('/api/linkedin/disconnect', { method: 'POST' });
+      setLinkedinStatus({ connected: false });
+      setLinkedinMessage('');
+    } catch {
+      // ignore
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
   const handleToggleActive = async (source: SourceData) => {
     await handleUpdateSource(source.id, { isActive: !source.isActive });
   };
@@ -231,6 +277,59 @@ export default function SettingsPage() {
               {data.user.createdAt ? new Date(data.user.createdAt).toLocaleDateString() : 'Unknown'}
             </p>
           </div>
+        </div>
+      </section>
+
+      {/* Connected Accounts */}
+      <section className="bg-white rounded-xl shadow-sm p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4">Connected Accounts</h2>
+
+        {linkedinMessage && (
+          <div className={`mb-4 px-4 py-2 rounded-lg text-sm ${
+            linkedinMessage.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+          }`}>
+            {linkedinMessage}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between py-3 px-4 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-3">
+            <span className="w-10 h-10 bg-blue-700 text-white rounded-lg flex items-center justify-center font-bold text-sm">in</span>
+            <div>
+              <p className="font-medium text-gray-900">LinkedIn</p>
+              {linkedinStatus?.connected ? (
+                <p className="text-sm text-green-600">
+                  Connected as {linkedinStatus.displayName || 'Unknown'}
+                  {linkedinStatus.expiresAt && (
+                    <span className="text-gray-400 ml-2">
+                      expires {new Date(linkedinStatus.expiresAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </p>
+              ) : linkedinStatus?.expired ? (
+                <p className="text-sm text-amber-600">Token expired — reconnect to continue publishing</p>
+              ) : (
+                <p className="text-sm text-gray-500">Connect to publish posts directly from DailyPost</p>
+              )}
+            </div>
+          </div>
+
+          {linkedinStatus?.connected ? (
+            <button
+              onClick={handleDisconnectLinkedIn}
+              disabled={disconnecting}
+              className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors text-sm disabled:opacity-50"
+            >
+              {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+            </button>
+          ) : (
+            <a
+              href="/api/linkedin/connect"
+              className="px-4 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors text-sm font-medium"
+            >
+              {linkedinStatus?.expired ? 'Reconnect' : 'Connect LinkedIn'}
+            </a>
+          )}
         </div>
       </section>
 

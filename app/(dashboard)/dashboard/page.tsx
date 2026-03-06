@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import PostCard from './components/PostCard';
 import DatePicker from './components/DatePicker';
+import ReactToPost from './components/ReactToPost';
 import { GeneratedPost } from '@/lib/db/schema';
 
 interface DashboardData {
@@ -232,6 +233,11 @@ export default function DashboardPage() {
           )}
         </>
       )}
+
+      {/* React to Post */}
+      <div className="mt-8">
+        <ReactToPost />
+      </div>
 
       {/* Stats */}
       {data.posts.length > 0 && (

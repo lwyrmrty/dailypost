@@ -12,6 +12,8 @@ export default function PostCard({ post }: PostCardProps) {
   const [status, setStatus] = useState(post.status);
   const [showEditModal, setShowEditModal] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState('');
 
   async function updateStatus(newStatus: string, editedContent?: string) {
     setUpdating(true);
@@ -34,6 +36,31 @@ export default function PostCard({ post }: PostCardProps) {
 
   function copyToClipboard() {
     navigator.clipboard.writeText(post.content);
+  }
+
+  async function publishToLinkedIn() {
+    setPublishing(true);
+    setPublishError('');
+    try {
+      const res = await fetch('/api/linkedin/publish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'post',
+          content: post.content,
+          generatedPostId: post.id,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to publish');
+      }
+      setStatus('posted');
+    } catch (err) {
+      setPublishError(err instanceof Error ? err.message : 'Publish failed');
+    } finally {
+      setPublishing(false);
+    }
   }
 
   const isActioned = status !== 'suggested';
@@ -124,9 +151,24 @@ export default function PostCard({ post }: PostCardProps) {
         </a>
       )}
 
+      {/* Publish error */}
+      {publishError && (
+        <p className="text-xs text-red-600 mb-2">{publishError}</p>
+      )}
+
       {/* Actions */}
       {!isActioned && (
         <div className="flex gap-2 flex-wrap pt-3 border-t border-gray-100">
+          {post.platform === 'linkedin' && (
+            <button
+              onClick={publishToLinkedIn}
+              disabled={publishing || updating}
+              className="px-3 py-1.5 bg-blue-700 text-white rounded-lg hover:bg-blue-800 text-sm font-medium disabled:opacity-50 transition-colors"
+            >
+              {publishing ? 'Publishing...' : 'Publish to LinkedIn'}
+            </button>
+          )}
+
           <button
             onClick={() => updateStatus('posted')}
             disabled={updating}

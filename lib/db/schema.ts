@@ -94,6 +94,23 @@ export const generatedPosts = pgTable('generated_posts', {
   batchDate: date('batch_date').notNull(), // Which day's batch this belongs to
 });
 
+// LinkedIn connected accounts
+export const linkedinAccounts = pgTable('linkedin_accounts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+
+  linkedinId: text('linkedin_id').notNull(), // LinkedIn member URN (e.g., "urn:li:person:abc123")
+  accessToken: text('access_token').notNull(),
+  refreshToken: text('refresh_token'),
+  expiresAt: timestamp('expires_at').notNull(), // Access token expiry (60 days from LinkedIn)
+
+  displayName: text('display_name'),
+  profileUrl: text('profile_url'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Chat sessions table
 export const chatSessions = pgTable('chat_sessions', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -145,6 +162,8 @@ export type GeneratedPost = typeof generatedPosts.$inferSelect;
 export type NewGeneratedPost = typeof generatedPosts.$inferInsert;
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type NewChatSession = typeof chatSessions.$inferInsert;
+export type LinkedinAccount = typeof linkedinAccounts.$inferSelect;
+export type NewLinkedinAccount = typeof linkedinAccounts.$inferInsert;
 
 
 
