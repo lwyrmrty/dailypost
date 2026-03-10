@@ -111,6 +111,24 @@ export const linkedinAccounts = pgTable('linkedin_accounts', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+// Teams table
+export const teams = pgTable('teams', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  name: text('name').notNull(),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  inviteCode: text('invite_code').notNull().unique(), // Short code for joining
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// Team members table
+export const teamMembers = pgTable('team_members', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  teamId: uuid('team_id').references(() => teams.id, { onDelete: 'cascade' }).notNull(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  role: text('role').notNull().$type<'owner' | 'admin' | 'member'>().default('member'),
+  joinedAt: timestamp('joined_at').defaultNow().notNull(),
+});
+
 // Chat sessions table
 export const chatSessions = pgTable('chat_sessions', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -164,6 +182,10 @@ export type ChatSession = typeof chatSessions.$inferSelect;
 export type NewChatSession = typeof chatSessions.$inferInsert;
 export type LinkedinAccount = typeof linkedinAccounts.$inferSelect;
 export type NewLinkedinAccount = typeof linkedinAccounts.$inferInsert;
+export type Team = typeof teams.$inferSelect;
+export type NewTeam = typeof teams.$inferInsert;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type NewTeamMember = typeof teamMembers.$inferInsert;
 
 
 
