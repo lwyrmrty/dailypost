@@ -1,46 +1,26 @@
 import NextAuth from 'next-auth';
-import Credentials from 'next-auth/providers/credentials';
+import LinkedIn from 'next-auth/providers/linkedin';
 import { DrizzleAdapter } from '@auth/drizzle-adapter';
 import { db } from './lib/db';
-import { users } from './lib/db/schema';
+import { accounts, users, verificationTokens, voiceProfiles } from './lib/db/schema';
 import { eq } from 'drizzle-orm';
-import bcrypt from 'bcryptjs';
+import { upsertLinkedInAccount } from '@/lib/linkedin/account-sync';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(db),
+  adapter: DrizzleAdapter(db, {
+    usersTable: users,
+    accountsTable: accounts,
+    verificationTokensTable: verificationTokens,
+  }),
   providers: [
-    Credentials({
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
-
-        const user = await db.query.users.findFirst({
-          where: eq(users.email, credentials.email as string),
-        });
-
-        if (!user || !user.passwordHash) {
-          return null;
-        }
-
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.passwordHash
-        );
-
-        if (!isValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        };
+    LinkedIn({
+      clientId: process.env.LINKEDIN_CLIENT_ID,
+      clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          scope: 'openid profile email w_member_social',
+        },
       },
     }),
   ],
@@ -62,6 +42,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string;
       }
       return session;
+    },
+  },
+  events: {
+    async createUser({ user }) {
+      if (!user.id) {
+        return;
+      }
+
+      const existingProfile = await db.query.voiceProfiles.findFirst({
+        where: eq(voiceProfiles.userId, user.id),
+      });
+
+      if (!existingProfile) {
+        await db.insert(voiceProfiles).values({
+          userId: user.id,
+        });
+      }
+    },
+    async signIn({ user, account, profile }) {
+      if (
+        account?.provider !== 'linkedin' ||
+        !user.id ||
+        !account.access_token ||
+        !account.providerAccountId
+      ) {
+        return;
+      }
+
+      const expiresAt = account.expires_at
+        ? new Date(account.expires_at * 1000)
+        : new Date(Date.now() + 60 * 24 * 60 * 60 * 1000);
+      const profileData = (profile ?? {}) as {
+        name?: string | null;
+      };
+
+      await upsertLinkedInAccount({
+        userId: user.id,
+        linkedinId: account.providerAccountId,
+        accessToken: account.access_token,
+        refreshToken: account.refresh_token,
+        expiresAt,
+        displayName: user.name ?? profileData.name ?? null,
+      });
     },
   },
 });

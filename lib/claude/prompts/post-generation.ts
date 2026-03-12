@@ -119,6 +119,30 @@ STYLE INSPIRATION (qualities to channel):
 ${accounts.map(a => `- What they admire: "${a.whatYouLike}"`).join('\n')}`;
 }
 
+const GOAL_FRAMING: Record<string, string> = {
+  thought_leadership: 'Establish expertise — take clear, informed positions and share original insights',
+  deal_flow: 'Attract investors and partners — signal market knowledge, deal activity, and pattern recognition',
+  network_building: 'Build connections — be warm, invite dialogue, end with questions that draw people in',
+  portfolio_support: 'Amplify the ecosystem — reference portfolio companies and founders where relevant',
+  recruiting: 'Attract talent — convey culture, mission, and what makes the work exciting',
+  brand_awareness: 'Build visibility — create content worth sharing, represent the brand with authority',
+};
+
+function buildGoalsSection(profile: Partial<VoiceProfile>): string {
+  const goals = profile.postingGoals as string[] | null;
+  if (!goals || goals.length === 0) return '';
+
+  const lines = goals
+    .map(g => GOAL_FRAMING[g])
+    .filter(Boolean)
+    .map(desc => `- ${desc}`);
+
+  if (lines.length === 0) return '';
+
+  return `POSTING INTENT (let these goals subtly shape the angle and framing):
+${lines.join('\n')}`;
+}
+
 function buildToneSection(profile: Partial<VoiceProfile>): string {
   const tonePrefs = profile.tonePreferences as Record<string, unknown> | null;
   if (!tonePrefs) return 'Tone: professional yet conversational';
@@ -151,6 +175,7 @@ export function buildLinkedInPostPrompt(
   const perspectives = buildPerspectivesSection(profile, story.topic);
   const inspiration = buildInspirationSection(profile);
   const toneSection = buildToneSection(profile);
+  const goalsSection = buildGoalsSection(profile);
 
   return `
 You are a ghostwriter who has deeply studied this person's writing and must produce content indistinguishable from their own. You are NOT writing generic "LinkedIn content" — you are writing as THIS specific person.
@@ -168,6 +193,7 @@ CONTENT PROFILE:
 - Preferred post types: ${preferredTypes || 'news_commentary, hot_take'}
 ${perspectives ? `\n${perspectives}` : ''}
 ${inspiration ? `\n${inspiration}` : ''}
+${goalsSection ? `\n${goalsSection}` : ''}
 
 NEWS STORY TO COMMENT ON:
 Title: ${story.title}
@@ -206,6 +232,7 @@ export function buildXPostPrompt(
   const writingSamples = buildWritingSamplesSection(profile, 'x');
   const perspectives = buildPerspectivesSection(profile, story.topic);
   const tonePrefs = profile.tonePreferences as Record<string, unknown> || {};
+  const goalsSection = buildGoalsSection(profile);
 
   // Check for platform-specific adaptation notes
   const analysis = profile.voiceAnalysis as Record<string, unknown> | undefined;
@@ -227,6 +254,7 @@ CONTENT PROFILE:
 - Topics to avoid: ${(profile.avoidTopics || []).join(', ')}
 - Tone: ${tonePrefs.primary || 'conversational'}
 ${perspectives ? `\n${perspectives}` : ''}
+${goalsSection ? `\n${goalsSection}` : ''}
 
 NEWS STORY:
 Title: ${story.title}
@@ -268,6 +296,7 @@ export function buildQuickPostPrompt(
 
   const writingSamples = buildWritingSamplesSection(profile, platform);
   const perspectives = buildPerspectivesSection(profile, topic);
+  const goalsSection = buildGoalsSection(profile);
 
   const platformGuidelines = platform === 'linkedin'
     ? 'Write a professional LinkedIn post (1300-2000 characters). Use line breaks, include 3-5 hashtags, end with engagement hook.'
@@ -284,6 +313,7 @@ TOPIC/IDEA: ${topic}
 ${voiceSection}
 ${writingSamples}
 ${perspectives ? `\n${perspectives}` : ''}
+${goalsSection ? `\n${goalsSection}` : ''}
 
 PLATFORM GUIDELINES: ${platformGuidelines}
 

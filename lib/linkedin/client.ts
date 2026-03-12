@@ -2,7 +2,7 @@
  * LinkedIn API client for OAuth 2.0 and publishing.
  *
  * Scopes used:
- *   openid, profile         – read basic profile info during OAuth
+ *   openid, profile, email  – read basic profile info during OAuth
  *   w_member_social         – create posts, comments, reactions, reshares
  *
  * Token lifetime: 60 days (access), 365 days (refresh).
@@ -23,7 +23,7 @@ export function getLinkedInAuthUrl(state: string): string {
     client_id: process.env.LINKEDIN_CLIENT_ID!,
     redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/linkedin/callback`,
     state,
-    scope: 'openid profile w_member_social',
+    scope: 'openid profile email w_member_social',
   });
   return `${LINKEDIN_AUTH_URL}?${params}`;
 }

@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { linkedinAccounts } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
 import { exchangeCodeForTokens, getLinkedInProfile } from '@/lib/linkedin/client';
+import { upsertLinkedInAccount } from '@/lib/linkedin/account-sync';
 
 /**
  * GET /api/linkedin/callback
@@ -41,41 +39,17 @@ export async function GET(req: Request) {
     // Fetch LinkedIn profile info
     const profile = await getLinkedInProfile(tokens.accessToken);
 
-    // Build the author URN (needed for publishing)
-    const authorUrn = profile.linkedinId.startsWith('urn:')
-      ? profile.linkedinId
-      : `urn:li:person:${profile.linkedinId}`;
-
     const expiresAt = new Date(Date.now() + tokens.expiresIn * 1000);
 
-    // Upsert — replace existing connection for this user
-    const existing = await db.query.linkedinAccounts.findFirst({
-      where: eq(linkedinAccounts.userId, userId),
+    await upsertLinkedInAccount({
+      userId,
+      linkedinId: profile.linkedinId,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt,
+      displayName: profile.name,
+      profileUrl: profile.profileUrl,
     });
-
-    if (existing) {
-      await db.update(linkedinAccounts)
-        .set({
-          linkedinId: authorUrn,
-          accessToken: tokens.accessToken,
-          refreshToken: tokens.refreshToken,
-          expiresAt,
-          displayName: profile.name,
-          profileUrl: profile.profileUrl,
-          updatedAt: new Date(),
-        })
-        .where(eq(linkedinAccounts.userId, userId));
-    } else {
-      await db.insert(linkedinAccounts).values({
-        userId,
-        linkedinId: authorUrn,
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresAt,
-        displayName: profile.name,
-        profileUrl: profile.profileUrl,
-      });
-    }
 
     return NextResponse.redirect(`${settingsUrl}?linkedin=connected`);
   } catch (err) {

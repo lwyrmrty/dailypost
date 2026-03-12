@@ -249,7 +249,6 @@ export default function OnboardingPage() {
               onComplete={handleRewriteComplete}
               onSkip={handleSkip}
               initialData={data.samplePosts ? { samplePosts: data.samplePosts } : undefined}
-              postingExperience={data.foundation?.postingExperience}
             />
           )}
 
@@ -260,7 +259,6 @@ export default function OnboardingPage() {
               initialData={data.uploadedContent ? { uploadedContent: data.uploadedContent } : undefined}
               rewritePairs={data.rewriteExercises}
               jobDescription={data.foundation?.jobDescription}
-              postingExperience={data.foundation?.postingExperience}
               voiceDiscovery={data.voiceDiscovery}
             />
           )}
