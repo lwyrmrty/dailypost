@@ -12,6 +12,7 @@ const LINKEDIN_AUTH_URL = 'https://www.linkedin.com/oauth/v2/authorization';
 const LINKEDIN_TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken';
 const LINKEDIN_API_BASE = 'https://api.linkedin.com/v2';
 const LINKEDIN_REST_BASE = 'https://api.linkedin.com/rest';
+const LINKEDIN_VERSION = '202510';
 
 // ---------------------------------------------------------------------------
 // OAuth helpers
@@ -109,24 +110,26 @@ function restHeaders(accessToken: string) {
     Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
     'X-Restli-Protocol-Version': '2.0.0',
-    'LinkedIn-Version': '202502',
+    'LinkedIn-Version': LINKEDIN_VERSION,
   };
 }
 
-/**
- * Create a new LinkedIn post (text-only).
- * Returns the post URN.
- *
- * The `commentary` field supports inline @mentions using the syntax:
- *   @[Display Name](urn:li:organization:123)   – mention a company
- *   @[Display Name](urn:li:person:abc)          – mention a person
- * The display name must match the entity's actual LinkedIn name (case-sensitive
- * for organizations; partial match OK for people).
- */
-export async function createPost(accessToken: string, authorUrn: string, text: string): Promise<string> {
-  const body = {
+export interface LinkedInPostImage {
+  id: string;
+  altText?: string;
+}
+
+interface InitializeImageUploadResponse {
+  value?: {
+    image?: string;
+    uploadUrl?: string;
+  };
+}
+
+function buildBasePostBody(authorUrn: string, commentary: string) {
+  return {
     author: authorUrn,
-    commentary: text,
+    commentary,
     visibility: 'PUBLIC',
     distribution: {
       feedDistribution: 'MAIN_FEED',
@@ -136,6 +139,89 @@ export async function createPost(accessToken: string, authorUrn: string, text: s
     lifecycleState: 'PUBLISHED',
     isReshareDisabledByAuthor: false,
   };
+}
+
+export async function uploadImage(
+  accessToken: string,
+  ownerUrn: string,
+  fileBuffer: Buffer,
+  mimeType: string
+): Promise<string> {
+  const initializeResponse = await fetch(`${LINKEDIN_REST_BASE}/images?action=initializeUpload`, {
+    method: 'POST',
+    headers: restHeaders(accessToken),
+    body: JSON.stringify({
+      initializeUploadRequest: {
+        owner: ownerUrn,
+      },
+    }),
+  });
+
+  if (!initializeResponse.ok) {
+    const errText = await initializeResponse.text();
+    throw new Error(`LinkedIn image init failed (${initializeResponse.status}): ${errText}`);
+  }
+
+  const initializeData = await initializeResponse.json() as InitializeImageUploadResponse;
+  const uploadUrl = initializeData.value?.uploadUrl;
+  const imageUrn = initializeData.value?.image;
+
+  if (!uploadUrl || !imageUrn) {
+    throw new Error('LinkedIn image init did not return an upload URL.');
+  }
+
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': mimeType,
+    },
+    body: new Uint8Array(fileBuffer),
+  });
+
+  if (!uploadResponse.ok) {
+    const errText = await uploadResponse.text();
+    throw new Error(`LinkedIn image upload failed (${uploadResponse.status}): ${errText}`);
+  }
+
+  return imageUrn;
+}
+
+/**
+ * Create a new LinkedIn post.
+ * Returns the post URN.
+ *
+ * The `commentary` field supports inline @mentions using the syntax:
+ *   @[Display Name](urn:li:organization:123)   – mention a company
+ *   @[Display Name](urn:li:person:abc)          – mention a person
+ * The display name must match the entity's actual LinkedIn name (case-sensitive
+ * for organizations; partial match OK for people).
+ */
+export async function createPost(
+  accessToken: string,
+  authorUrn: string,
+  text: string,
+  images: LinkedInPostImage[] = []
+): Promise<string> {
+  const body = buildBasePostBody(authorUrn, text) as ReturnType<typeof buildBasePostBody> & {
+    content?: {
+      media?: LinkedInPostImage;
+      multiImage?: {
+        images: LinkedInPostImage[];
+      };
+    };
+  };
+
+  if (images.length === 1) {
+    body.content = {
+      media: images[0],
+    };
+  } else if (images.length > 1) {
+    body.content = {
+      multiImage: {
+        images,
+      },
+    };
+  }
 
   const res = await fetch(`${LINKEDIN_REST_BASE}/posts`, {
     method: 'POST',
@@ -225,16 +311,7 @@ export async function resharePost(
   commentary: string
 ): Promise<string> {
   const body = {
-    author: authorUrn,
-    commentary,
-    visibility: 'PUBLIC',
-    distribution: {
-      feedDistribution: 'MAIN_FEED',
-      targetEntities: [],
-      thirdPartyDistributionChannels: [],
-    },
-    lifecycleState: 'PUBLISHED',
-    isReshareDisabledByAuthor: false,
+    ...buildBasePostBody(authorUrn, commentary),
     reshareContext: {
       parent: originalPostUrn,
     },

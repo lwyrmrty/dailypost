@@ -2,7 +2,7 @@ import { VoiceProfile } from '@/lib/db/schema';
 
 export function buildChatSystemPrompt(profile: Partial<VoiceProfile> | null): string {
   if (!profile) {
-    return `You are a helpful content creation assistant. Help the user create engaging social media content for LinkedIn and X (Twitter). NEVER use em dashes (—) in any content you create.`;
+    return `You are a helpful content creation assistant. Help the user create engaging LinkedIn content. Do not mention other platforms unless the user explicitly asks about them. NEVER use em dashes (—) in any content you create.`;
   }
 
   return `
@@ -23,10 +23,10 @@ YOUR ROLE:
 When creating content:
 - Match their voice and style
 - Keep LinkedIn posts 1300-2000 characters
-- Keep X posts punchy (under 280 chars for single, or thread format)
 - Include relevant hashtags for LinkedIn
 - Always suggest engagement hooks (questions, CTAs)
 - NEVER use em dashes (—) anywhere. Use commas, periods, or other punctuation instead.
+- Do not suggest versions for other platforms unless the user explicitly asks for them.
 
 Be conversational, helpful, and proactive with suggestions.
 `.trim();
@@ -38,6 +38,7 @@ export function buildChatContextPrompt(
 ): string {
   const historyText = conversationHistory
     .slice(-10) // Last 10 messages for context
+    .filter((message) => typeof message.content === 'string' && message.content.trim().length > 0)
     .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
     .join('\n');
 

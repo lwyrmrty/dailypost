@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="433px" height="524px" viewBox="0 0 433 524" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Path</title>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Frame" transform="translate(-646, -1101)" fill="#FFFFFF">
+            <g id="Group" transform="translate(608.65, 1101)">
+                <g id="Asset-1" transform="translate(37, 0.22)">
+                    <g id="Layer_2" transform="translate(0.35, -0.22)">
+                        <path d="M382.11774,0 L50.8921766,0 L50.8921766,0 C22.7884298,0 0,22.8394801 0,51.0061844 L0,511.3042 C0,523.260638 15.0137871,528.567985 22.4909307,519.245342 L308.030551,104.129344 C309.428797,102.09188 311.739373,100.87934 314.208616,100.87934 C319.851182,100.87934 323.480671,106.892345 320.852762,111.901526 L188.604503,364.676328 C185.986511,369.685509 189.606083,375.698514 195.248649,375.698514 L382.107823,375.698514 C410.21157,375.698514 433,352.859034 433,324.69233 L433,51.0061844 C433,22.8394801 410.21157,0 382.107823,0 L382.11774,0 Z" id="Path" fill-rule="nonzero"></path>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

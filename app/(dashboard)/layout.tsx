@@ -1,8 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function DashboardLayout({
   children,
@@ -11,6 +12,46 @@ export default function DashboardLayout({
 }) {
   const { data: session, status } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+  const isOnboardingRoute = pathname?.startsWith('/onboarding');
+  const isDashboardHomeRoute = pathname === '/dashboard';
+
+  useEffect(() => {
+    if (status !== 'authenticated' || !session?.user?.id) {
+      return;
+    }
+    let cancelled = false;
+    if (!pathname?.startsWith('/onboarding')) {
+      setOnboardingCompleted(null);
+    }
+    fetch('/api/me')
+      .then(async (res) => {
+        if (res.ok) {
+          return res.json();
+        }
+
+        if ((res.status === 401 || res.status === 404) && !cancelled) {
+          await signOut({ callbackUrl: '/login' });
+        }
+
+        return null;
+      })
+      .then((data) => {
+        if (!cancelled && data) {
+          setOnboardingCompleted(data.onboardingCompleted ?? false);
+        }
+        if (!cancelled && !data && !pathname?.startsWith('/onboarding')) {
+          setOnboardingCompleted(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setOnboardingCompleted(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, session?.user?.id, pathname]);
 
   // Show loading state while checking session
   if (status === 'loading') {
@@ -21,7 +62,43 @@ export default function DashboardLayout({
     );
   }
 
+  if (status === 'unauthenticated') {
+    router.replace('/login');
+    return null;
+  }
+
+  // First-time users: redirect to onboarding if not completed
+  if (
+    session?.user?.id &&
+    onboardingCompleted === false &&
+    !isOnboardingRoute
+  ) {
+    router.replace('/onboarding');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-pulse text-gray-500">Setting up your account...</div>
+      </div>
+    );
+  }
+
+  // Still checking onboarding status for non-onboarding routes
+  if (
+    session?.user?.id &&
+    onboardingCompleted === null &&
+    !isOnboardingRoute
+  ) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-pulse text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
   const isActive = (path: string) => pathname?.startsWith(path);
+
+  if (isOnboardingRoute || isDashboardHomeRoute) {
+    return <main>{children}</main>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -31,20 +108,20 @@ export default function DashboardLayout({
           <div className="flex justify-between h-16">
             <div className="flex">
               {/* Logo */}
-              <Link 
-                href="/dashboard" 
+              <Link
+                href="/dashboard"
                 className="flex items-center px-2 text-xl font-bold text-gray-900"
               >
                 DailyPost
               </Link>
-              
+
               {/* Nav Links */}
               <div className="hidden sm:ml-8 sm:flex sm:space-x-4">
                 <Link
                   href="/dashboard"
                   className={`inline-flex items-center px-3 py-2 text-sm font-medium ${
-                    isActive('/dashboard') && !isActive('/dashboard/') 
-                      ? 'text-blue-600' 
+                    isActive('/dashboard') && !isActive('/dashboard/')
+                      ? 'text-blue-600'
                       : 'text-gray-700 hover:text-gray-900'
                   }`}
                 >
@@ -53,8 +130,8 @@ export default function DashboardLayout({
                 <Link
                   href="/chat"
                   className={`inline-flex items-center px-3 py-2 text-sm font-medium ${
-                    isActive('/chat') 
-                      ? 'text-blue-600' 
+                    isActive('/chat')
+                      ? 'text-blue-600'
                       : 'text-gray-700 hover:text-gray-900'
                   }`}
                 >
@@ -63,8 +140,8 @@ export default function DashboardLayout({
                 <Link
                   href="/settings"
                   className={`inline-flex items-center px-3 py-2 text-sm font-medium ${
-                    isActive('/settings') 
-                      ? 'text-blue-600' 
+                    isActive('/settings')
+                      ? 'text-blue-600'
                       : 'text-gray-700 hover:text-gray-900'
                   }`}
                 >
@@ -72,7 +149,7 @@ export default function DashboardLayout({
                 </Link>
               </div>
             </div>
-            
+
             {/* Right side */}
             <div className="flex items-center space-x-4">
               {/* User menu */}
@@ -81,7 +158,7 @@ export default function DashboardLayout({
                   {session?.user?.name || session?.user?.email}
                 </span>
                 <button
-                  onClick={() => signOut({ callbackUrl: '/' })}
+                  onClick={() => signOut({ callbackUrl: '/login' })}
                   className="text-sm text-gray-500 hover:text-gray-700"
                 >
                   Sign out

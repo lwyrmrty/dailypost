@@ -127,9 +127,10 @@ interface StepVoiceDiscoveryProps {
   onComplete: (data: { voiceDiscovery: VoiceDiscoveryPreferences }) => void;
   onSkip: () => void;
   initialData?: { voiceDiscovery: VoiceDiscoveryPreferences };
+  isEditing?: boolean;
 }
 
-export default function StepVoiceDiscovery({ onComplete, onSkip, initialData }: StepVoiceDiscoveryProps) {
+export default function StepVoiceDiscovery({ onComplete, onSkip, initialData, isEditing = false }: StepVoiceDiscoveryProps) {
   const [currentPair, setCurrentPair] = useState(0);
   const [picks, setPicks] = useState<VoiceDiscoveryPreferences['picks']>(
     initialData?.voiceDiscovery?.picks || []
@@ -170,104 +171,82 @@ export default function StepVoiceDiscovery({ onComplete, onSkip, initialData }: 
   if (!pair) return null;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="cardcontent">
+      <div className="cardcontent-header">
+        <div className="cardcontent-heading">Discover your voice and tone</div>
+        <div className="cardcontent-subheading">
+          Which version sounds more like how you <strong>want</strong> to write? Pick the one that feels more &quot;you&quot; - or the you you want to be.
+          <br />
+        </div>
+      </div>
       <div>
-        <h2 className="text-2xl font-bold mb-2">Discover your voice</h2>
-        <p className="text-gray-600">
-          Which version sounds more like how you <strong>want</strong> to write?
-          Pick the one that feels more &quot;you&quot; &mdash; or the you you want to be.
-        </p>
-        <div className="flex items-center gap-2 mt-3">
+        <div className="labeltxt">
+          {pair.dimensionLabel} <span className="dim">-</span> Round {currentPair + 1} <span className="dim">of</span> {STYLE_PAIRS.length}
+        </div>
+        <div className="stepsprogress dark">
           {STYLE_PAIRS.map((_, idx) => (
             <div
               key={idx}
-              className={`h-1.5 flex-1 rounded-full transition-colors ${
-                idx < currentPair
-                  ? 'bg-blue-500'
-                  : idx === currentPair
-                  ? 'bg-blue-300'
-                  : 'bg-gray-200'
-              }`}
+              className={`stepblock w-inline-block ${idx < currentPair || idx === currentPair ? 'current' : ''}`}
             />
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          {pair.dimensionLabel} &middot; Round {currentPair + 1} of {STYLE_PAIRS.length}
-        </p>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {[
-          { key: 'A' as const, option: pair.optionA },
-          { key: 'B' as const, option: pair.optionB },
-        ].map(({ key, option }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setSelected(key)}
-            className={`text-left border-2 rounded-xl p-5 transition-all flex flex-col ${
-              selected === key
-                ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                : 'border-gray-200 hover:border-gray-300 bg-white'
-            }`}
-          >
-            <span className={`text-xs font-semibold uppercase tracking-wide mb-3 ${
-              selected === key ? 'text-blue-600' : 'text-gray-400'
-            }`}>
-              {option.label}
-            </span>
-            <p className="text-sm text-gray-800 whitespace-pre-line leading-relaxed flex-1">
-              {option.content}
-            </p>
-          </button>
-        ))}
-      </div>
-
-      {selected && (
-        <div className="flex items-center justify-center gap-4 py-2">
-          <span className="text-sm text-gray-500">How strong is your preference?</span>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setConfidence('strong')}
-              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                confidence === 'strong'
-                  ? 'bg-blue-100 border-blue-400 text-blue-700'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
-            >
-              Strongly prefer this
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfidence('slight')}
-              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                confidence === 'slight'
-                  ? 'bg-blue-100 border-blue-400 text-blue-700'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}
-            >
-              Slight preference
-            </button>
-          </div>
+      <div className="walkthroughblock">
+        <div className="buttonselectors">
+          {[
+            { key: 'A' as const, option: pair.optionA },
+            { key: 'B' as const, option: pair.optionB },
+          ].map(({ key, option }) => (
+            <div key={key} className="splitselector-item">
+              <button
+                type="button"
+                onClick={() => setSelected(key)}
+                className={`optionselector-button w-inline-block ${selected === key ? 'selected' : ''}`}
+              >
+                <div className="buttonheading">{option.label}</div>
+                <div className="buttonsubheading large" style={{ whiteSpace: 'pre-line' }}>
+                  {option.content}
+                </div>
+              </button>
+            </div>
+          ))}
         </div>
-      )}
-
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="flex-1 border border-gray-300 rounded-lg py-3 font-medium hover:bg-gray-50 transition-colors"
-        >
-          Skip This Step
-        </button>
+        {selected && (
+          <div className="buttonselectors aligncenter">
+            <div className="labeltxt nospace">How strong is your preference?</div>
+            <div className="pillselector-item">
+              <button
+                type="button"
+                onClick={() => setConfidence('strong')}
+                className={`pillselector-button w-inline-block ${confidence === 'strong' ? 'selected' : ''}`}
+              >
+                <div className="buttonheading">Strongly prefer this</div>
+              </button>
+            </div>
+            <div className="pillselector-item">
+              <button
+                type="button"
+                onClick={() => setConfidence('slight')}
+                className={`pillselector-button w-inline-block ${confidence === 'slight' ? 'selected' : ''}`}
+              >
+                <div className="buttonheading">Slightly prefer this</div>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <button type="button" onClick={onSkip} hidden aria-hidden="true" tabIndex={-1}>
+        Skip
+      </button>
+      <div className="floatingbutton">
         <button
           type="button"
           onClick={handleNext}
           disabled={!selected}
-          className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+          className="submitbutton w-button"
         >
-          {isLastPair ? 'See My Voice Profile' : 'Next'}
+          {isEditing ? 'Save Changes' : isLastPair ? 'Continue - Next Step' : 'Continue - Next Pick'}
         </button>
       </div>
     </div>

@@ -25,6 +25,12 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.pagewrapper {
+  display: flex;
+  font-family: Figtree, sans-serif;
+  gap: 15px;
+}
+
 /* Ensure input text is always visible */
 input, textarea, select {
   color: #000000 !important;

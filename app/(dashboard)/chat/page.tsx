@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface PostBlock {
   type: 'post';
@@ -16,7 +17,14 @@ interface TextBlock {
   content: string;
 }
 
-type ContentBlock = PostBlock | TextBlock;
+interface SourceBlock {
+  type: 'source';
+  title: string;
+  url: string;
+  subtitle: string;
+}
+
+type ContentBlock = PostBlock | TextBlock | SourceBlock;
 
 interface Message {
   role: 'user' | 'assistant';
@@ -102,13 +110,71 @@ function PostCard({ post }: { post: PostBlock }) {
   );
 }
 
+function SourceCard({ source }: { source: SourceBlock }) {
+  return (
+    <a
+      href={source.url}
+      target="_blank"
+      rel="noreferrer"
+      className="block my-3 border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden hover:bg-gray-50 transition-colors"
+    >
+      <div className="p-4">
+        <div className="text-sm font-medium text-gray-900">{source.title}</div>
+        <div className="text-sm text-gray-500 mt-1">{source.subtitle}</div>
+      </div>
+    </a>
+  );
+}
+
+function renderRichText(content: string) {
+  const lines = content.split('\n');
+  const nodes: React.ReactNode[] = [];
+  let bulletItems: string[] = [];
+
+  const flushBullets = () => {
+    if (bulletItems.length === 0) {
+      return;
+    }
+
+    nodes.push(
+      <ul key={`bullets-${nodes.length}`} className="list-disc pl-6 mb-3">
+        {bulletItems.map((item, index) => (
+          <li key={index} className="mb-1">{item}</li>
+        ))}
+      </ul>
+    );
+    bulletItems = [];
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushBullets();
+      nodes.push(<p key={`space-${nodes.length}`}><br /></p>);
+      return;
+    }
+
+    if (/^[-*•]\s+/.test(trimmed)) {
+      bulletItems.push(trimmed.replace(/^[-*•]\s+/, ''));
+      return;
+    }
+
+    flushBullets();
+    nodes.push(<p key={`paragraph-${nodes.length}`}>{trimmed}</p>);
+  });
+
+  flushBullets();
+  return nodes;
+}
+
 function AssistantMessage({ message }: { message: Message }) {
   // If it's a simple text reply
   if (message.content && !message.blocks) {
     return (
       <div className="flex justify-start">
         <div className="rounded-2xl px-4 py-2.5 max-w-[80%] bg-gray-100 text-gray-900">
-          <div className="whitespace-pre-wrap">{message.content}</div>
+          <div>{renderRichText(message.content)}</div>
         </div>
       </div>
     );
@@ -123,10 +189,13 @@ function AssistantMessage({ message }: { message: Message }) {
             return (
               <div key={i} className="flex justify-start">
                 <div className="rounded-2xl px-4 py-2.5 bg-gray-100 text-gray-900">
-                  <div className="whitespace-pre-wrap">{block.content}</div>
+                  <div>{renderRichText(block.content)}</div>
                 </div>
               </div>
             );
+          }
+          if (block.type === 'source') {
+            return <SourceCard key={i} source={block} />;
           }
           if (block.type === 'post') {
             return <PostCard key={i} post={block} />;
@@ -142,6 +211,8 @@ function AssistantMessage({ message }: { message: Message }) {
 
 export default function ChatPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -151,18 +222,26 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const hasAutoSentSourceUrl = useRef(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  async function sendMessage(e?: React.FormEvent) {
+  const sendMessage = useCallback(async (
+    messageText: string,
+    options?: { clearInput?: boolean },
+    e?: React.FormEvent
+  ) => {
     e?.preventDefault();
-    if (!input.trim() || loading) return;
+    if (!messageText.trim() || loading) return;
 
-    const userMessage: Message = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+    const userMessage: Message = { role: 'user', content: messageText };
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
+    if (options?.clearInput) {
+      setInput('');
+    }
     setLoading(true);
 
     try {
@@ -170,17 +249,17 @@ export default function ChatPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          messages: [...messages, userMessage],
+          messages: nextMessages,
           userId: session?.user?.id,
         }),
       });
 
       const data = await response.json();
       
-      // Handle both structured blocks and simple reply
       if (data.blocks) {
         setMessages(prev => [...prev, { 
           role: 'assistant', 
+          content: data.reply,
           blocks: data.blocks,
         }]);
       } else {
@@ -198,7 +277,18 @@ export default function ChatPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [loading, messages, session?.user?.id]);
+
+  useEffect(() => {
+    const sourceUrl = searchParams.get('sourceUrl');
+    if (!sourceUrl || hasAutoSentSourceUrl.current || !session?.user?.id || loading) {
+      return;
+    }
+
+    hasAutoSentSourceUrl.current = true;
+    void sendMessage(sourceUrl);
+    router.replace('/chat');
+  }, [loading, router, searchParams, sendMessage, session?.user?.id]);
 
   const quickActionPrompts = {
     aiPost: [
@@ -291,8 +381,12 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <form onSubmit={sendMessage} className="border-t border-gray-200 p-4">
+        <form
+          onSubmit={(e) => {
+            void sendMessage(input, { clearInput: true }, e);
+          }}
+          className="border-t border-gray-200 p-4"
+        >
           <div className="flex gap-2">
             <input
               type="text"

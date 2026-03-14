@@ -1,196 +1,295 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+
+type CalibrationRating = 'not_accurate' | 'good' | 'great';
 
 interface CalibrationVersion {
   label: string;
   content: string;
+  postType?: string;
+}
+
+interface PostTypeRating {
+  type: string;
+  rating: number;
 }
 
 export interface CalibrationFeedback {
-  selectedVersion: string;
-  reasoning: string;
-  platform: string;
+  batch: number;
+  label: string;
+  content: string;
+  topic: string;
+  platform: 'linkedin';
+  rating: CalibrationRating;
+  postType?: string;
 }
 
 interface StepVoiceCalibrationProps {
-  onComplete: (data: { calibrationFeedback: CalibrationFeedback[] }) => void;
+  onComplete: (data: {
+    calibrationFeedback: CalibrationFeedback[];
+    voiceAnalysis?: unknown;
+    styleBible?: string;
+  }) => void;
   onSkip: () => void;
+  voiceAnalysis?: unknown;
   styleBible?: string;
   primaryTopics?: string[];
+  postTypeRatings?: PostTypeRating[];
+  isEditing?: boolean;
 }
+
+const REQUIRED_APPROVED_COUNT = 5;
+const REQUIRED_BATCH_SIZE = 10;
+
+const RATING_LABELS: Record<CalibrationRating, string> = {
+  not_accurate: 'Not Accurate',
+  good: 'Good',
+  great: 'Great',
+};
 
 export default function StepVoiceCalibration({
   onComplete,
   onSkip,
+  voiceAnalysis,
   styleBible,
   primaryTopics,
+  postTypeRatings,
+  isEditing = false,
 }: StepVoiceCalibrationProps) {
   const [versions, setVersions] = useState<CalibrationVersion[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [reasoning, setReasoning] = useState('');
+  const [ratings, setRatings] = useState<Record<string, CalibrationRating>>({});
   const [feedback, setFeedback] = useState<CalibrationFeedback[]>([]);
-  const [round, setRound] = useState(0);
+  const [batch, setBatch] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [activeStyleBible, setActiveStyleBible] = useState(styleBible);
+  const [activeVoiceAnalysis, setActiveVoiceAnalysis] = useState<unknown>(voiceAnalysis);
 
-  const topics = primaryTopics?.length ? primaryTopics : ['technology trends'];
-  const maxRounds = 2;
+  const topics = useMemo(
+    () => (primaryTopics?.length ? primaryTopics : ['industry trends', 'how your market is changing']),
+    [primaryTopics]
+  );
 
-  async function generateVersions() {
-    if (!styleBible) {
-      setError('Voice analysis required before calibration. Go back and complete the upload step.');
+  const activeTopic = topics[(batch - 1) % topics.length];
+  const ratedCount = versions.filter((version) => ratings[version.label]).length;
+  const approvedCount = versions.filter((version) => {
+    const rating = ratings[version.label];
+    return rating === 'good' || rating === 'great';
+  }).length;
+  const historicalApprovedCount = feedback.filter((item) => item.rating === 'good' || item.rating === 'great').length;
+  const totalApprovedCount = historicalApprovedCount + approvedCount;
+  const canSubmit = versions.length === REQUIRED_BATCH_SIZE && ratedCount === versions.length && !loading;
+
+  useEffect(() => {
+    setActiveStyleBible(styleBible);
+  }, [styleBible]);
+
+  useEffect(() => {
+    setActiveVoiceAnalysis(voiceAnalysis);
+  }, [voiceAnalysis]);
+
+  async function generateBatch() {
+    if (!activeStyleBible) {
+      setError('Generate your voice first before starting validation.');
+      setVersions([]);
       return;
     }
 
     setLoading(true);
     setError('');
-    setSelected(null);
-    setReasoning('');
 
     try {
-      const topic = topics[round % topics.length];
-      const platform = round === 0 ? 'linkedin' : 'x';
-
       const response = await fetch('/api/onboarding/calibrate-voice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ styleBible, topic, platform }),
+        body: JSON.stringify({
+          styleBible: activeStyleBible,
+          topic: activeTopic,
+          platform: 'linkedin',
+          postTypeRatings,
+          feedback,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate calibration posts');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to generate validation posts');
       }
 
       const data = await response.json();
+      if (!Array.isArray(data.versions) || data.versions.length !== REQUIRED_BATCH_SIZE) {
+        throw new Error('The validation batch was incomplete. Please try again.');
+      }
+
       setVersions(data.versions);
-    } catch {
-      setError('Failed to generate sample posts. You can skip this step.');
+      setRatings({});
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate validation posts.');
+      setVersions([]);
     } finally {
       setLoading(false);
     }
   }
 
-  function handleSelect(label: string) {
-    setSelected(label);
+  useEffect(() => {
+    void generateBatch();
+    // Regenerate whenever the batch advances or the source voice changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batch, activeStyleBible]);
+
+  function setRating(label: string, rating: CalibrationRating) {
+    setRatings((prev) => ({ ...prev, [label]: rating }));
   }
 
-  function handleSubmitRound() {
-    if (!selected) return;
+  function handleSubmitBatch() {
+    const batchFeedback: CalibrationFeedback[] = versions.map((version) => ({
+      batch,
+      label: version.label,
+      content: version.content,
+      topic: activeTopic,
+      platform: 'linkedin',
+      rating: ratings[version.label],
+      postType: version.postType,
+    }));
 
-    const platform = round === 0 ? 'linkedin' : 'x';
-    const newFeedback = [
-      ...feedback,
-      { selectedVersion: selected, reasoning, platform },
-    ];
-    setFeedback(newFeedback);
+    const allFeedback = [...feedback, ...batchFeedback];
 
-    if (round + 1 < maxRounds) {
-      setRound(round + 1);
-      setVersions([]);
-      setSelected(null);
-      setReasoning('');
-    } else {
-      onComplete({ calibrationFeedback: newFeedback });
+    if (totalApprovedCount >= REQUIRED_APPROVED_COUNT) {
+      onComplete({
+        calibrationFeedback: allFeedback,
+        voiceAnalysis: activeVoiceAnalysis,
+        styleBible: activeStyleBible,
+      });
+      return;
     }
-  }
 
-  // Auto-generate on first render and when moving to next round
-  if (versions.length === 0 && !loading && !error) {
-    generateVersions();
+    setFeedback(allFeedback);
+    setInfo(
+      `Saved this batch of ratings. We now have ${totalApprovedCount} of ${REQUIRED_APPROVED_COUNT} posts rated Good or Great. We will use those stronger samples, plus the misses you marked Not Accurate, to improve the next set.`
+    );
+    setBatch((prev) => prev + 1);
   }
-
-  const platformLabel = round === 0 ? 'LinkedIn' : 'X';
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Voice calibration</h2>
-        <p className="text-gray-600">
-          We generated {platformLabel} posts using your voice profile.
-          Pick the one that sounds most like something you&apos;d actually post.
-        </p>
-        <p className="text-sm text-gray-500 mt-1">
-          Round {round + 1} of {maxRounds} &middot; {platformLabel}
-        </p>
-      </div>
-
-      {loading && (
-        <div className="text-center py-12">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-r-transparent" />
-          <p className="text-gray-600 mt-4">Generating sample posts in your voice...</p>
+    <div className="cardcontent">
+      <div className="flexrow">
+        <div className="_40col">
+          <div className="cardcontent-header">
+            <div className="cardcontent-heading">Rank Sample Posts</div>
+            <div className="cardcontent-subheading">
+              Rate all 10 generated LinkedIn posts. Once at least 5 feel Good or Great, we can trust that your voice profile is strong enough to use.
+              <br />
+            </div>
+            <div className="cardcontent-subheading">
+              Rate these less on the topics you would write, more that you could see this being how you might write about this topic.
+              <br />
+            </div>
+          </div>
+          <div className="labeltxt pulldown">{totalApprovedCount} of {REQUIRED_APPROVED_COUNT} Good or Great posts</div>
+          {info ? <div className="smalltext">{info}</div> : null}
+          {error ? <div className="smalltext">{error}</div> : null}
+          <button type="button" onClick={onSkip} hidden aria-hidden="true" tabIndex={-1}>
+            Skip
+          </button>
+          <div>
+            <div className="floatingbutton leftalign">
+              <button
+                type="button"
+                onClick={handleSubmitBatch}
+                disabled={!canSubmit || totalApprovedCount < REQUIRED_APPROVED_COUNT}
+                className="submitbutton w-inline-block"
+              >
+                <div>{isEditing ? 'Save Changes' : 'Finish!'}</div>
+              </button>
+            </div>
+          </div>
+          <div>
+            <div className="floatingbutton leftalign">
+              <button
+                type="button"
+                onClick={() => {
+                  if (canSubmit) {
+                    handleSubmitBatch();
+                  }
+                }}
+                disabled={!canSubmit || totalApprovedCount >= REQUIRED_APPROVED_COUNT}
+                className="submitbutton dark w-inline-block"
+              >
+                <div>Generate 10 More Posts</div>
+              </button>
+            </div>
+          </div>
         </div>
-      )}
-
-      {error && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
-          {error}
-        </div>
-      )}
-
-      {versions.length > 0 && (
-        <div className="space-y-4">
-          {versions.map((version) => (
-            <button
-              key={version.label}
-              type="button"
-              onClick={() => handleSelect(version.label)}
-              className={`w-full text-left border-2 rounded-xl p-6 transition-all ${
-                selected === version.label
-                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                  : 'border-gray-200 hover:border-gray-300 bg-white'
-              }`}
+        <div className="_60col">
+          {loading && (
+            <div
+              style={{
+                display: 'flex',
+                minHeight: '420px',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              <div className="flex items-center gap-3 mb-3">
-                <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  selected === version.label
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {version.label}
-                </span>
-                {selected === version.label && (
-                  <span className="text-sm text-blue-600 font-medium">Selected</span>
-                )}
+              <div
+                style={{
+                  width: '100%',
+                  maxWidth: '420px',
+                  border: '1.5px solid #d8e0db',
+                  borderRadius: '16px',
+                  background: 'linear-gradient(180deg, #f9fbfa 0%, #f1f5f3 100%)',
+                  padding: '28px 24px',
+                  textAlign: 'center',
+                  boxShadow: '0 18px 50px rgba(3, 28, 37, 0.08)',
+                }}
+              >
+                <div
+                  style={{
+                    width: '52px',
+                    height: '52px',
+                    margin: '0 auto 16px',
+                    borderRadius: '999px',
+                    background: '#002e3d',
+                    opacity: 0.16,
+                  }}
+                  className="animate-pulse"
+                />
+                <div
+                  style={{
+                    marginBottom: '8px',
+                    color: '#002e3d',
+                  }}
+                  className="buttonheading animate-pulse"
+                >
+                  Generating 10 fresh validation posts...
+                </div>
+                <div className="smalltext" style={{ color: '#36525b' }}>
+                  We&apos;re creating a stronger batch in your voice and varying the hooks, angles, and structure so you can judge whether this really sounds like you.
+                </div>
               </div>
-              <p className="text-gray-900 whitespace-pre-line leading-relaxed text-sm">
-                {version.content}
-              </p>
-            </button>
+            </div>
+          )}
+          {!loading && versions.map((version) => (
+            <div key={version.label} className="postsample">
+              <div className="buttonheading">Post {version.label}</div>
+              <div className="buttonsubheading large" style={{ whiteSpace: 'pre-line' }}>{version.content}</div>
+              <div className="ratingrow">
+                {(Object.keys(RATING_LABELS) as CalibrationRating[]).map((rating) => (
+                  <div key={rating} className="pillselector-item fill">
+                    <button
+                      type="button"
+                      onClick={() => setRating(version.label, rating)}
+                      className={`pillselector-button row w-inline-block ${rating === 'not_accurate' ? 'red' : ''} ${ratings[version.label] === rating && rating === 'great' ? 'full' : ''} ${ratings[version.label] === rating ? 'selected' : ''}`}
+                    >
+                      <div className="buttonheading">{RATING_LABELS[rating]}</div>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
-      )}
-
-      {selected && (
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            What makes this one sound most like you? (optional)
-          </label>
-          <textarea
-            value={reasoning}
-            onChange={(e) => setReasoning(e.target.value)}
-            placeholder="e.g., 'The tone is right but I'd never use that opening' or 'This one nails my style but I'd be more direct'"
-            className="w-full border border-gray-300 rounded-lg p-4 h-24 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-          />
-        </div>
-      )}
-
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="flex-1 border border-gray-300 rounded-lg py-3 font-medium hover:bg-gray-50 transition-colors"
-        >
-          Skip This Step
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmitRound}
-          disabled={!selected}
-          className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
-        >
-          {round + 1 < maxRounds ? `Next (${platformLabel})` : 'Complete Calibration'}
-        </button>
       </div>
     </div>
   );

@@ -1,24 +1,22 @@
 export type OnboardingStep =
-  | 'foundation'
+  | 'about_goals'
+  | 'topics'
   | 'voice_discovery'
   | 'sample_posts'
-  | 'upload_content'
-  | 'voice_calibration'
-  | 'inspiration'
   | 'post_types'
-  | 'perspectives'
-  | 'sources';
+  | 'upload_content'
+  | 'generate_voice'
+  | 'voice_calibration'
 
 export const STEP_WEIGHTS: Record<OnboardingStep, number> = {
-  foundation: 14,        // Required
-  voice_discovery: 14,   // A/B style preference picks — critical for aspirational users
-  sample_posts: 10,      // Rewrite exercise
-  upload_content: 12,    // Voice analysis + Style Bible
-  voice_calibration: 10, // A/B calibration
-  inspiration: 8,
+  about_goals: 14,
+  topics: 12,
+  voice_discovery: 12,
+  sample_posts: 10,
   post_types: 10,
-  perspectives: 10,
-  sources: 12,           // Important for content generation
+  upload_content: 16,
+  generate_voice: 16,
+  voice_calibration: 10,
 };
 
 export function calculateProgress(completedSteps: OnboardingStep[]): number {
@@ -37,45 +35,42 @@ export function canGeneratePosts(progress: number): boolean {
 
 export function getStepNumber(step: OnboardingStep): number {
   const steps: OnboardingStep[] = [
-    'foundation',
+    'about_goals',
+    'topics',
     'voice_discovery',
     'sample_posts',
-    'upload_content',
-    'voice_calibration',
-    'inspiration',
     'post_types',
-    'perspectives',
-    'sources',
+    'upload_content',
+    'generate_voice',
+    'voice_calibration',
   ];
   return steps.indexOf(step) + 1;
 }
 
 export function getStepName(step: OnboardingStep): string {
   const names: Record<OnboardingStep, string> = {
-    foundation: 'Foundation',
-    voice_discovery: 'Voice Discovery',
-    sample_posts: 'Rewrite Exercise',
-    upload_content: 'Upload Content',
-    voice_calibration: 'Voice Calibration',
-    inspiration: 'Inspiration',
+    about_goals: 'About & Goals',
+    topics: 'Topics',
+    voice_discovery: 'Discover Your Voice',
+    sample_posts: 'Writing Samples',
     post_types: 'Post Types',
-    perspectives: 'Perspectives',
-    sources: 'News Sources',
+    upload_content: 'Upload Past Content',
+    generate_voice: 'Generate Voice',
+    voice_calibration: 'Voice Validation',
   };
   return names[step];
 }
 
 export function getNextStep(currentStep: OnboardingStep): OnboardingStep | null {
   const steps: OnboardingStep[] = [
-    'foundation',
+    'about_goals',
+    'topics',
     'voice_discovery',
     'sample_posts',
-    'upload_content',
-    'voice_calibration',
-    'inspiration',
     'post_types',
-    'perspectives',
-    'sources',
+    'upload_content',
+    'generate_voice',
+    'voice_calibration',
   ];
   
   const currentIndex = steps.indexOf(currentStep);
@@ -88,15 +83,14 @@ export function getNextStep(currentStep: OnboardingStep): OnboardingStep | null 
 
 export function getPreviousStep(currentStep: OnboardingStep): OnboardingStep | null {
   const steps: OnboardingStep[] = [
-    'foundation',
+    'about_goals',
+    'topics',
     'voice_discovery',
     'sample_posts',
-    'upload_content',
-    'voice_calibration',
-    'inspiration',
     'post_types',
-    'perspectives',
-    'sources',
+    'upload_content',
+    'generate_voice',
+    'voice_calibration',
   ];
   
   const currentIndex = steps.indexOf(currentStep);

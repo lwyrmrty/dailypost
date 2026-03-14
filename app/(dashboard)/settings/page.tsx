@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
+import { toast } from '@/lib/toast';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -170,7 +171,7 @@ export default function SettingsPage() {
       setShowAddModal(false);
     } catch (err) {
       console.error('Add source error:', err);
-      alert('Failed to add source');
+      toast.error('Failed to add source');
     } finally {
       setSaving(false);
     }
@@ -197,7 +198,7 @@ export default function SettingsPage() {
       setEditingSource(null);
     } catch (err) {
       console.error('Update source error:', err);
-      alert('Failed to update source');
+      toast.error('Failed to update source');
     } finally {
       setSaving(false);
     }
@@ -217,7 +218,7 @@ export default function SettingsPage() {
       await fetchData();
     } catch (err) {
       console.error('Delete source error:', err);
-      alert('Failed to delete source');
+      toast.error('Failed to delete source');
     }
   };
 
@@ -438,13 +439,13 @@ export default function SettingsPage() {
         <div className="space-y-3">
           <button
             className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-            onClick={() => alert('Coming soon: Export all your data')}
+            onClick={() => toast.info('Coming soon: Export all your data')}
           >
             Export Data
           </button>
           <button
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors ml-3"
-            onClick={() => alert('Coming soon: Delete account')}
+            onClick={() => toast.info('Coming soon: Delete account')}
           >
             Delete Account
           </button>

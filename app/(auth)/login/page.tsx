@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react';
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import styles from './page.module.css';
 
 function LinkedInLoginButton() {
   const [loading, setLoading] = useState(false);
@@ -16,51 +17,75 @@ function LinkedInLoginButton() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={styles.loginForm}>
+      <div>
+        <div className={styles.loginHeader}>
+          Continue with
+          <br />
+          LinkedIn
+        </div>
+        <div className={styles.linkedinButton}>
+          <button
+            type="button"
+            onClick={handleLinkedInSignIn}
+            disabled={loading}
+            className={styles.linkedinCta}
+          >
+            {loading ? 'Redirecting to LinkedIn...' : 'Continue with LinkedIn'}
+          </button>
+        </div>
+      </div>
+
       {linkedinConnected && (
-        <div className="bg-green-50 text-green-600 px-4 py-3 rounded-lg text-sm">
+        <div className={styles.successMessage}>
           LinkedIn reconnected successfully.
         </div>
       )}
 
       {authError && (
-        <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
+        <div className={styles.errorMessage}>
           LinkedIn sign-in failed. Please try again.
         </div>
       )}
-
-      <button
-        type="button"
-        onClick={handleLinkedInSignIn}
-        disabled={loading}
-        className="w-full bg-[#0A66C2] text-white rounded-lg py-3 font-medium hover:bg-[#004182] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? 'Redirecting to LinkedIn...' : 'Continue with LinkedIn'}
-      </button>
-
-      <p className="text-sm text-gray-500 text-center">
-        Your LinkedIn account is used for both sign-in and publishing access.
-      </p>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md p-8 bg-white rounded-xl shadow-lg">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome back</h1>
-          <p className="text-gray-600 mt-2">Sign in with LinkedIn to access DailyPost</p>
+    <div className={styles.pageWrapper}>
+      <div className={styles.adminWrapper}>
+        <div className={styles.loginContent}>
+          <div className={styles.loginBlock}>
+            <div className={styles.loginFormWrapper}>
+              <img
+                loading="lazy"
+                src="/webflow-assets/images/postieslogofinallite.svg"
+                alt="Posties"
+                className={styles.loginLogo}
+              />
+
+              <Suspense fallback={<div className={styles.loadingState}>Loading...</div>}>
+                <LinkedInLoginButton />
+              </Suspense>
+
+              <p className={styles.helperText}>
+                Your LinkedIn account is used for both sign-in and publishing access.
+              </p>
+            </div>
+          </div>
         </div>
-        
-        <Suspense fallback={<div className="text-center py-4">Loading...</div>}>
-          <LinkedInLoginButton />
-        </Suspense>
-        
-        <p className="text-center text-gray-600 mt-6">
-          First-time teammates can use the same LinkedIn button to create an account.
-        </p>
+
+        <div className={styles.loginImageSide}>
+          <div className={styles.loginImage}>
+            <img
+              loading="lazy"
+              src="https://cdn.prod.website-files.com/69af8998456ec24b29704c58/69b43398b0f22cc7e5fc0043_thinkingcreative.webp"
+              alt=""
+              className={styles.fullImage}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

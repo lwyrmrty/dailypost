@@ -1,4 +1,15 @@
-import { pgTable, uuid, text, timestamp, boolean, integer, jsonb, date } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  text,
+  timestamp,
+  boolean,
+  integer,
+  jsonb,
+  date,
+  index,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 // Users table
 export const users = pgTable('users', {
@@ -19,6 +30,9 @@ export const voiceProfiles = pgTable('voice_profiles', {
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   
   // Foundation data
+  role: text('role'),
+  focus: text('focus'),
+  differentiator: text('differentiator'),
   jobDescription: text('job_description'),
   postingGoals: text('posting_goals').array(),
   primaryTopics: text('primary_topics').array(),
@@ -40,6 +54,7 @@ export const voiceProfiles = pgTable('voice_profiles', {
   styleBible: text('style_bible'), // Free-form ghostwriter brief - the primary voice instruction
   calibrationFeedback: jsonb('calibration_feedback'), // User's picks from A/B voice calibration
   engagementPreferences: jsonb('engagement_preferences'), // What they actually select
+  completedSteps: text('completed_steps').array(), // Which onboarding steps have been completed
   
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -93,6 +108,29 @@ export const generatedPosts = pgTable('generated_posts', {
   generatedAt: timestamp('generated_at').defaultNow().notNull(),
   batchDate: date('batch_date').notNull(), // Which day's batch this belongs to
 });
+
+export const composerImages = pgTable('composer_images', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+
+  storageKey: text('storage_key').notNull(),
+  publicUrl: text('public_url').notNull(),
+  originalName: text('original_name').notNull(),
+  mimeType: text('mime_type').notNull(),
+  fileSize: integer('file_size').notNull(),
+  width: integer('width'),
+  height: integer('height'),
+  sortOrder: integer('sort_order').default(0).notNull(),
+
+  linkedinImageUrn: text('linkedin_image_urn'),
+  linkedinAssetStatus: text('linkedin_asset_status'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  userSortOrderIdx: index('composer_images_user_sort_order_idx').on(table.userId, table.sortOrder),
+  storageKeyIdx: uniqueIndex('composer_images_storage_key_idx').on(table.storageKey),
+}));
 
 // LinkedIn connected accounts
 export const linkedinAccounts = pgTable('linkedin_accounts', {
@@ -178,6 +216,8 @@ export type Source = typeof sources.$inferSelect;
 export type NewSource = typeof sources.$inferInsert;
 export type GeneratedPost = typeof generatedPosts.$inferSelect;
 export type NewGeneratedPost = typeof generatedPosts.$inferInsert;
+export type ComposerImageRecord = typeof composerImages.$inferSelect;
+export type NewComposerImageRecord = typeof composerImages.$inferInsert;
 export type ChatSession = typeof chatSessions.$inferSelect;
 export type NewChatSession = typeof chatSessions.$inferInsert;
 export type LinkedinAccount = typeof linkedinAccounts.$inferSelect;

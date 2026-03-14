@@ -1,15 +1,24 @@
 import { NextResponse } from 'next/server';
+import { readFile } from 'fs/promises';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
-import { linkedinAccounts, generatedPosts } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import {
+  composerImages,
+  linkedinAccounts,
+  generatedPosts,
+  type ComposerImageRecord,
+} from '@/lib/db/schema';
+import { and, eq, inArray } from 'drizzle-orm';
 import {
   createPost,
   createComment,
   reactToPost,
   resharePost,
   refreshAccessToken,
+  uploadImage,
 } from '@/lib/linkedin/client';
+import { reindexComposerImagesForUser } from '@/lib/composer-image-service';
+import { deleteComposerImageFile, getComposerImageAbsolutePath } from '@/lib/composer-image-storage';
 
 type PublishAction = 'post' | 'comment' | 'react' | 'reshare';
 type ReactionType = 'LIKE' | 'CELEBRATE' | 'SUPPORT' | 'LOVE' | 'INSIGHTFUL' | 'FUNNY';
@@ -20,6 +29,12 @@ interface PublishRequest {
   postUrn?: string; // Required for comment, react, reshare
   reactionType?: ReactionType;
   generatedPostId?: string; // If publishing a generated post, mark it as posted
+  composerImageIds?: string[];
+  clearComposerImages?: boolean;
+}
+
+function buildAltText(originalName: string) {
+  return originalName.replace(/\.[^.]+$/, '').trim() || undefined;
 }
 
 /**
@@ -73,7 +88,15 @@ export async function POST(req: Request) {
   }
 
   const body = (await req.json()) as PublishRequest;
-  const { action, content, postUrn, reactionType, generatedPostId } = body;
+  const {
+    action,
+    content,
+    postUrn,
+    reactionType,
+    generatedPostId,
+    composerImageIds,
+    clearComposerImages,
+  } = body;
 
   if (!action) {
     return NextResponse.json({ error: 'Action required' }, { status: 400 });
@@ -98,7 +121,62 @@ export async function POST(req: Request) {
         if (!content) {
           return NextResponse.json({ error: 'Content required for post' }, { status: 400 });
         }
-        resultId = await createPost(accessToken, linkedinId, content);
+
+        const imageIds = Array.isArray(composerImageIds)
+          ? composerImageIds.filter(Boolean)
+          : [];
+
+        if (imageIds.length > 20) {
+          return NextResponse.json({ error: 'LinkedIn supports up to 20 images per post.' }, { status: 400 });
+        }
+
+        let orderedImages: ComposerImageRecord[] = [];
+
+        if (imageIds.length > 0) {
+          const records = await db.query.composerImages.findMany({
+            where: and(
+              eq(composerImages.userId, session.user.id),
+              inArray(composerImages.id, imageIds)
+            ),
+          });
+
+          if (records.length !== imageIds.length) {
+            return NextResponse.json({ error: 'One or more images could not be found.' }, { status: 404 });
+          }
+
+          const recordsById = new Map(records.map((record) => [record.id, record]));
+          orderedImages = imageIds
+            .map((id) => recordsById.get(id))
+            .filter((image): image is ComposerImageRecord => Boolean(image));
+        }
+
+        const linkedinImages = await Promise.all(orderedImages.map(async (image) => {
+          if (image.linkedinImageUrn) {
+            return {
+              id: image.linkedinImageUrn,
+              altText: buildAltText(image.originalName),
+            };
+          }
+
+          const absolutePath = getComposerImageAbsolutePath(image.storageKey);
+          const fileBuffer = await readFile(absolutePath);
+          const linkedinImageUrn = await uploadImage(accessToken, linkedinId, fileBuffer, image.mimeType);
+
+          await db.update(composerImages)
+            .set({
+              linkedinImageUrn,
+              linkedinAssetStatus: 'uploaded',
+              updatedAt: new Date(),
+            })
+            .where(eq(composerImages.id, image.id));
+
+          return {
+            id: linkedinImageUrn,
+            altText: buildAltText(image.originalName),
+          };
+        }));
+
+        resultId = await createPost(accessToken, linkedinId, content, linkedinImages);
         break;
       }
 
@@ -138,6 +216,24 @@ export async function POST(req: Request) {
           postedAt: new Date(),
         })
         .where(eq(generatedPosts.id, generatedPostId));
+    }
+
+    if (action === 'post' && clearComposerImages && Array.isArray(composerImageIds) && composerImageIds.length > 0) {
+      const records = await db.query.composerImages.findMany({
+        where: and(
+          eq(composerImages.userId, session.user.id),
+          inArray(composerImages.id, composerImageIds)
+        ),
+      });
+
+      await db.delete(composerImages)
+        .where(and(
+          eq(composerImages.userId, session.user.id),
+          inArray(composerImages.id, composerImageIds)
+        ));
+
+      await Promise.all(records.map((record) => deleteComposerImageFile(record.storageKey)));
+      await reindexComposerImagesForUser(session.user.id);
     }
 
     return NextResponse.json({ success: true, id: resultId });

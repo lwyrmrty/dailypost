@@ -6,11 +6,12 @@ const anthropic = new Anthropic({
 
 export async function generateWithClaude(
   prompt: string,
-  systemPrompt?: string
+  systemPrompt?: string,
+  maxTokens = 4096
 ): Promise<string> {
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 2000,
+    max_tokens: maxTokens,
     system: systemPrompt,
     messages: [
       {
@@ -31,7 +32,7 @@ export async function generateWithClaudeStreaming(
 ): Promise<string> {
   const stream = await anthropic.messages.stream({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 2000,
+    max_tokens: 4096,
     system: systemPrompt,
     messages: [
       {

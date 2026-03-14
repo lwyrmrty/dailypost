@@ -15,6 +15,12 @@ export async function GET(req: Request) {
     const profile = await db.query.voiceProfiles.findFirst({
       where: eq(voiceProfiles.userId, userId),
     });
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: {
+        onboardingCompleted: true,
+      },
+    });
 
     if (!profile) {
       return NextResponse.json(null);
@@ -23,18 +29,27 @@ export async function GET(req: Request) {
     // Transform database fields to match frontend structure
     return NextResponse.json({
       foundation: {
+        role: profile.role,
+        focus: profile.focus,
+        differentiator: profile.differentiator,
         jobDescription: profile.jobDescription,
         primaryTopics: profile.primaryTopics,
         avoidTopics: profile.avoidTopics,
         postingGoals: profile.postingGoals,
       },
+      voiceDiscovery: profile.voiceDiscovery,
       samplePosts: profile.samplePosts,
+      rewriteExercises: profile.rewriteExercises,
       uploadedContent: profile.uploadedContent,
       voiceAnalysis: profile.voiceAnalysis,
+      styleBible: profile.styleBible,
+      calibrationFeedback: profile.calibrationFeedback,
       inspirationAccounts: profile.inspirationAccounts,
       postTypeRatings: profile.postTypeRatings,
       tonePreferences: profile.tonePreferences,
       topicPerspectives: profile.topicPerspectives,
+      completedSteps: profile.completedSteps,
+      onboardingCompleted: user?.onboardingCompleted ?? false,
     });
   } catch (error) {
     console.error('Failed to get onboarding data:', error);
@@ -60,33 +75,49 @@ export async function POST(req: Request) {
       // Create new voice profile
       await db.insert(voiceProfiles).values({
         userId,
+        role: data.foundation?.role,
+        focus: data.foundation?.focus,
+        differentiator: data.foundation?.differentiator,
         jobDescription: data.foundation?.jobDescription,
         postingGoals: data.foundation?.postingGoals,
         primaryTopics: data.foundation?.primaryTopics,
         avoidTopics: data.foundation?.avoidTopics,
+        voiceDiscovery: data.voiceDiscovery,
         samplePosts: data.samplePosts,
+        rewriteExercises: data.rewriteExercises,
         uploadedContent: data.uploadedContent,
         voiceAnalysis: data.voiceAnalysis,
+        styleBible: data.styleBible,
+        calibrationFeedback: data.calibrationFeedback,
         inspirationAccounts: data.inspirationAccounts,
         postTypeRatings: data.postTypeRatings,
         tonePreferences: data.tonePreferences,
         topicPerspectives: data.topicPerspectives,
+        completedSteps: data.completedSteps,
       });
     } else {
       // Update voice profile
       await db.update(voiceProfiles)
         .set({
+          role: data.foundation?.role,
+          focus: data.foundation?.focus,
+          differentiator: data.foundation?.differentiator,
           jobDescription: data.foundation?.jobDescription,
           postingGoals: data.foundation?.postingGoals,
           primaryTopics: data.foundation?.primaryTopics,
           avoidTopics: data.foundation?.avoidTopics,
+          voiceDiscovery: data.voiceDiscovery,
           samplePosts: data.samplePosts,
+          rewriteExercises: data.rewriteExercises,
           uploadedContent: data.uploadedContent,
           voiceAnalysis: data.voiceAnalysis,
+          styleBible: data.styleBible,
+          calibrationFeedback: data.calibrationFeedback,
           inspirationAccounts: data.inspirationAccounts,
           postTypeRatings: data.postTypeRatings,
           tonePreferences: data.tonePreferences,
           topicPerspectives: data.topicPerspectives,
+          completedSteps: data.completedSteps,
           updatedAt: new Date(),
         })
         .where(eq(voiceProfiles.userId, userId));

@@ -16,6 +16,31 @@ export interface NewsStory {
   priority: number;
 }
 
+const TOPIC_SYNONYMS: Record<string, string[]> = {
+  ai: ['ai', 'artificial intelligence', 'llm', 'machine learning', 'ml', 'foundation model'],
+  biotech: ['biotech', 'biology', 'genomics', 'crispr', 'life science'],
+  climate: ['climate', 'clean energy', 'battery', 'solar', 'wind', 'carbon', 'fusion'],
+  cybersecurity: ['cybersecurity', 'security', 'breach', 'ransomware', 'malware'],
+  fintech: ['fintech', 'payments', 'banking', 'financial technology'],
+  healthcare: ['healthcare', 'health tech', 'medical', 'pharma'],
+  saas: ['saas', 'software', 'b2b software', 'enterprise software'],
+  product: ['product', 'product management', 'user experience'],
+  sales: ['sales', 'go to market', 'gtm', 'revenue'],
+  marketing: ['marketing', 'brand', 'demand gen', 'growth marketing'],
+  leadership: ['leadership', 'management', 'team building'],
+  hiring: ['hiring', 'recruiting', 'talent'],
+  startups: ['startup', 'startups', 'founder', 'venture-backed'],
+  company_building: ['company building', 'building companies', 'scaling', 'operator'],
+  vc_investing: ['venture capital', 'vc', 'investing', 'funding', 'series a', 'series b'],
+  operations: ['operations', 'ops', 'execution'],
+  industry_trends: ['industry trend', 'market trend', 'category shift'],
+  innovation: ['innovation', 'breakthrough', 'emerging technology'],
+  strategy: ['strategy', 'competitive advantage', 'positioning'],
+  growth: ['growth', 'scale', 'expansion'],
+  customer_success: ['customer success', 'retention', 'expansion revenue'],
+  entrepreneurship: ['entrepreneurship', 'founders', 'building', 'starting a company'],
+};
+
 const TOPIC_KEYWORDS: Record<string, string[]> = {
   'AI/ML': ['ai', 'artificial intelligence', 'machine learning', 'ml', 'neural', 'gpt', 'llm', 'deep learning', 'foundation model'],
   'Robotics': ['robot', 'robotics', 'automation', 'humanoid', 'manipulation'],
@@ -40,6 +65,67 @@ export function categorizeTopic(text: string): string {
   }
   
   return 'General';
+}
+
+function normalizeToken(text: string): string {
+  return text.trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, '_');
+}
+
+function expandTopicKeywords(topic: string): string[] {
+  const normalized = normalizeToken(topic);
+  const parts = normalized.split('_').filter(Boolean);
+  const synonyms = TOPIC_SYNONYMS[normalized] || [];
+
+  return Array.from(new Set([
+    normalized.replace(/_/g, ' '),
+    ...parts,
+    ...synonyms,
+  ])).filter((keyword) => keyword.length > 1);
+}
+
+function scoreStoryForUser(story: NewsStory, topics: string[], avoidTopics: string[] = []): number {
+  const haystack = `${story.title} ${story.summary} ${story.topic || ''}`.toLowerCase();
+  let score = story.priority * 2;
+
+  for (const topic of topics) {
+    const keywords = expandTopicKeywords(topic);
+    let matchedTopic = false;
+
+    for (const keyword of keywords) {
+      if (!haystack.includes(keyword.toLowerCase())) {
+        continue;
+      }
+
+      matchedTopic = true;
+      score += story.title.toLowerCase().includes(keyword.toLowerCase()) ? 3 : 1.5;
+    }
+
+    if (matchedTopic) {
+      score += 2;
+    }
+  }
+
+  for (const avoidTopic of avoidTopics) {
+    const keywords = expandTopicKeywords(avoidTopic);
+    if (keywords.some((keyword) => haystack.includes(keyword.toLowerCase()))) {
+      score -= 6;
+    }
+  }
+
+  const ageHours = Math.max(0, (Date.now() - story.publishedAt.getTime()) / (1000 * 60 * 60));
+  if (ageHours <= 12) {
+    score += 3;
+  } else if (ageHours <= 24) {
+    score += 2;
+  } else if (ageHours <= 48) {
+    score += 1;
+  }
+
+  if (/\b(raise[ds]?|funding|series [abcde]|acquisition|launch|breakthrough|announces?)\b/i.test(haystack)) {
+    score += 1.5;
+  }
+
+  return score;
 }
 
 /**
@@ -173,20 +259,24 @@ function deduplicateStoriesByTitle(stories: NewsStory[]): NewsStory[] {
 
 export async function getStoriesForTopics(
   userId: string,
-  topics: string[]
+  topics: string[],
+  avoidTopics: string[] = []
 ): Promise<NewsStory[]> {
   const allStories = await aggregateNews(userId);
-  
-  // Filter and boost stories matching user topics
+
   return allStories
     .map(story => ({
       ...story,
-      priority: topics.some(t => 
-        story.topic?.toLowerCase().includes(t.toLowerCase()) ||
-        story.title.toLowerCase().includes(t.toLowerCase())
-      ) ? story.priority + 2 : story.priority,
+      relevanceScore: scoreStoryForUser(story, topics, avoidTopics),
     }))
-    .sort((a, b) => b.priority - a.priority);
+    .filter((story) => story.relevanceScore > 0)
+    .sort((a, b) => {
+      if (b.relevanceScore !== a.relevanceScore) {
+        return b.relevanceScore - a.relevanceScore;
+      }
+
+      return b.publishedAt.getTime() - a.publishedAt.getTime();
+    });
 }
 
 // Note: Default/suggested sources are now defined in:

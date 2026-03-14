@@ -33,12 +33,12 @@ export async function POST(req: Request) {
           continue;
         }
 
-        // Get today's news, prioritizing user's topics
+        // Get today's news with lightweight heuristic topic scoring.
         const stories = profile.primaryTopics && profile.primaryTopics.length > 0
-          ? await getStoriesForTopics(user.id, profile.primaryTopics)
+          ? await getStoriesForTopics(user.id, profile.primaryTopics, profile.avoidTopics || [])
           : await aggregateNews(user.id);
 
-        // Select best stories (avoiding topics user wants to avoid)
+        // Keep a final defensive filter for avoided topics.
         const filteredStories = stories.filter(story => {
           if (!profile.avoidTopics || profile.avoidTopics.length === 0) return true;
           return !profile.avoidTopics.some(topic => 

@@ -15,6 +15,7 @@ interface Props {
   onComplete: (data: { sources: SelectedSource[] }) => void;
   onSkip: () => void;
   initialData?: { sources: SelectedSource[] };
+  isEditing?: boolean;
 }
 
 const SUGGESTED_SOURCES: Array<{
@@ -64,7 +65,7 @@ const SOURCE_TYPE_ICONS: Record<SourceType, string> = {
   linkedin: '💼',
 };
 
-export default function Step8Sources({ onComplete, onSkip, initialData }: Props) {
+export default function Step8Sources({ onComplete, onSkip, initialData, isEditing = false }: Props) {
   const [selectedSources, setSelectedSources] = useState<SelectedSource[]>(
     initialData?.sources || []
   );
@@ -228,8 +229,10 @@ export default function Step8Sources({ onComplete, onSkip, initialData }: Props)
           disabled={selectedSources.length === 0}
           className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {selectedSources.length === 0 
-            ? 'Select at least one source' 
+          {selectedSources.length === 0
+            ? (isEditing ? 'Save Changes' : 'Select at least one source')
+            : isEditing
+              ? 'Save Changes'
             : `Continue with ${selectedSources.length} source${selectedSources.length > 1 ? 's' : ''}`
           }
         </button>

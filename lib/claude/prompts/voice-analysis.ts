@@ -13,6 +13,11 @@ export interface VoiceDiscoveryData {
   summary: Record<string, string>;
 }
 
+export interface PostTypePreference {
+  type: string;
+  rating: number;
+}
+
 const TRAIT_DESCRIPTIONS: Record<string, string> = {
   bold_contrarian: 'Takes bold, direct positions. Challenges conventional wisdom. Not afraid to be provocative.',
   balanced_nuanced: 'Presents balanced, nuanced takes. Acknowledges multiple sides. Measured and thoughtful.',
@@ -44,6 +49,31 @@ ${lines.join('\n')}
 These preferences are especially important if writing samples are limited. They represent how the user WANTS to sound.`;
 }
 
+function humanizePostType(type: string): string {
+  return type
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function buildPostTypeSection(postTypePreferences?: PostTypePreference[]): string {
+  if (!postTypePreferences?.length) return '';
+
+  const sorted = [...postTypePreferences]
+    .filter((item) => item.rating > 0)
+    .sort((a, b) => b.rating - a.rating);
+
+  if (!sorted.length) return '';
+
+  const lines = sorted.map((item) => `- ${humanizePostType(item.type)}: ${item.rating}/5`);
+
+  return `
+POST FORMAT PREFERENCES (this is a soft prior, not hard voice truth):
+${lines.join('\n')}
+
+Use this to understand which formats and angles the user naturally gravitates toward. Let it influence examples and likely instincts, but do not let it overpower the writing samples themselves.`;
+}
+
 /**
  * Build the prompt for structured voice analysis (dimensions & metrics).
  * This produces the structured JSON that powers the UI display and
@@ -52,33 +82,36 @@ These preferences are especially important if writing samples are limited. They 
 export function buildVoiceAnalysisPrompt(
   posts: string[],
   rewritePairs?: RewritePair[],
-  voiceDiscovery?: VoiceDiscoveryData
+  voiceDiscovery?: VoiceDiscoveryData,
+  postTypePreferences?: PostTypePreference[]
 ): string {
   const discoverySection = voiceDiscovery ? buildDiscoverySection(voiceDiscovery) : '';
+  const postTypeSection = buildPostTypeSection(postTypePreferences);
 
   let rewriteSection = '';
   if (rewritePairs && rewritePairs.length > 0) {
     rewriteSection = `
 
-REWRITE COMPARISONS (these are especially revealing — the user rewrote generic text in their own voice):
+DIRECTED WRITING EXERCISES (these are especially revealing — the user wrote original posts in response to prompts):
 ${rewritePairs.map((pair, i) => `
 --- Rewrite ${i + 1}: ${pair.topic} ---
-GENERIC ORIGINAL: ${pair.original}
+PROMPT: ${pair.original}
 THEIR VERSION: ${pair.rewrite}
 `).join('\n')}
 
-Pay special attention to what changed between the generic version and their rewrite. The DELTA reveals their style instincts: what they add, remove, restructure, and emphasize.`;
+Pay special attention to how they approached each prompt. These samples reveal their natural instincts: how they open, structure ideas, express conviction, explain concepts, and add personality.`;
   }
 
   return `
-You are an expert writing style analyst. Analyze these writing samples with extreme precision to create a comprehensive voice fingerprint. Your goal is to capture every nuance so that someone could perfectly replicate this person's writing style.
+You are an expert writing style analyst. Analyze these writing samples with extreme precision to create a comprehensive voice fingerprint. Your goal is to capture the writer's abstract style tendencies and decision-making patterns, not to help someone copy exact wording.
 
 Writing Samples:
 ${posts.map((post, i) => `\n--- Sample ${i + 1} ---\n${post}`).join('\n')}
 ${rewriteSection}
 ${discoverySection}
+${postTypeSection}
 
-Analyze deeply and return JSON with the following structure. Be SPECIFIC and EVIDENCE-BASED — quote actual phrases from the samples where possible.
+Analyze deeply and return JSON with the following structure. Be SPECIFIC and EVIDENCE-BASED. You may quote short phrases where useful, but focus on patterns over memorized wording.
 
 {
   "sentencePatterns": {
@@ -166,17 +199,19 @@ export function buildStyleBiblePrompt(
   rewritePairs?: RewritePair[],
   jobDescription?: string,
   structuredAnalysis?: Record<string, unknown>,
-  voiceDiscovery?: VoiceDiscoveryData
+  voiceDiscovery?: VoiceDiscoveryData,
+  postTypePreferences?: PostTypePreference[]
 ): string {
   const discoverySection = voiceDiscovery ? buildDiscoverySection(voiceDiscovery) : '';
+  const postTypeSection = buildPostTypeSection(postTypePreferences);
   let rewriteSection = '';
   if (rewritePairs && rewritePairs.length > 0) {
     rewriteSection = `
 
-REWRITE COMPARISONS (the user rewrote generic text in their own voice — the differences are gold):
+DIRECTED WRITING EXERCISES (the user wrote original posts in response to these prompts — this is especially revealing):
 ${rewritePairs.map((pair, i) => `
 --- Rewrite ${i + 1}: ${pair.topic} ---
-GENERIC ORIGINAL: ${pair.original}
+PROMPT: ${pair.original}
 THEIR VERSION: ${pair.rewrite}
 `).join('\n')}`;
   }
@@ -192,7 +227,7 @@ Use this as a starting point, but go DEEPER. The style bible should capture nuan
   }
 
   return `
-You are the world's best ghostwriter being onboarded to write for a new client. You've been given samples of their writing and need to create your personal "Style Bible" — the document you'll reference every time you write as them.
+You are the world's best ghostwriter being onboarded to write for a new client. You've been given samples of their writing and need to create your personal "Style Bible" — the document you'll reference every time you try to capture their voice faithfully without copying them line by line.
 
 ${jobDescription ? `THE CLIENT: ${jobDescription}` : ''}
 
@@ -200,13 +235,14 @@ THEIR WRITING SAMPLES:
 ${posts.map((post, i) => `\n--- Sample ${i + 1} ---\n${post}`).join('\n')}
 ${rewriteSection}
 ${discoverySection}
+${postTypeSection}
 ${analysisHint}
 
 ${posts.length < 5 && discoverySection ? `IMPORTANT: This client has limited writing samples. Lean heavily on their voice discovery preferences (above) to shape the Style Bible. The preferences represent how they WANT to sound, even if they haven't written much yet. Build the Style Bible around their aspirational voice.\n` : ''}
-Write a comprehensive Style Bible (800-1200 words) structured as follows. Write it as a direct, practical reference document — not an academic analysis. Use second person ("you should", "notice how they") as if briefing another ghostwriter.
+Write a comprehensive Style Bible (800-1200 words) structured as follows. Write it as a direct, practical reference document — not an academic analysis. Use second person ("you should", "notice how they") as if briefing another ghostwriter. Focus on repeatable patterns, instincts, and stylistic choices. Avoid long verbatim excerpts from the samples.
 
 ## CORE VOICE
-What does this person fundamentally sound like? What's the first thing you'd tell another writer trying to impersonate them? What's the "vibe"?
+What does this person fundamentally sound like? What's the first thing you'd tell another writer trying to capture their voice authentically? What's the "vibe"?
 
 ## RHYTHM & CADENCE
 How do their sentences flow? What's their pacing like? When do they go short vs. long? How do they use line breaks, white space, and paragraph structure? Quote specific examples.
@@ -231,7 +267,7 @@ A concrete checklist:
 ## LINKEDIN vs X
 How should the voice adapt between platforms? What stays the same? What changes?
 
-Write the Style Bible as CONTINUOUS PROSE within each section (not bullet points, unless in the Do's/Don'ts section). Be specific and quote from their writing. This document should be so good that any skilled writer could read it and immediately produce content indistinguishable from the client's own.
+Write the Style Bible as CONTINUOUS PROSE within each section (not bullet points, unless in the Do's/Don'ts section). Be specific and use only short excerpts where needed. This document should be strong enough that any skilled writer could read it and immediately produce content that feels authentically like the client without needing to copy their wording.
 
 Return ONLY the Style Bible text, no other preamble.
 `.trim();
@@ -431,8 +467,9 @@ export function buildVoiceGuidelines(voiceAnalysis: Record<string, unknown>): st
 }
 
 /**
- * Select the best representative writing samples to include as few-shot examples.
- * Picks diverse samples that showcase different aspects of the writer's voice.
+ * Select representative writing samples to infer voice patterns later.
+ * Prefer real uploaded content over guided exercises so generation
+ * is anchored in organic writing rather than prompted responses.
  */
 export function selectFewShotExamples(
   samplePosts: string[] | null,
@@ -440,27 +477,23 @@ export function selectFewShotExamples(
   maxExamples: number = 3,
   platform?: 'linkedin' | 'x'
 ): string[] {
-  const allSamples = [
-    ...(uploadedContent || []),
-    ...(samplePosts || []),
-  ].filter(s => s.trim().length > 30);
-
-  if (allSamples.length === 0) return [];
-
-  // For X, prefer shorter samples; for LinkedIn, prefer longer ones
-  const sorted = [...allSamples].sort((a, b) => {
+  const sortForPlatform = (samples: string[]) => [...samples].sort((a, b) => {
     if (platform === 'x') return a.length - b.length;
     if (platform === 'linkedin') return b.length - a.length;
     return 0;
   });
+  const uploadedSamples = sortForPlatform((uploadedContent || []).filter((sample) => sample.trim().length > 30));
+  const guidedSamples = sortForPlatform((samplePosts || []).filter((sample) => sample.trim().length > 30));
+  const preferredPool = uploadedSamples.length > 0 ? uploadedSamples : guidedSamples;
 
-  // Pick diverse samples: shortest, longest, and one from the middle
-  if (sorted.length <= maxExamples) return sorted;
+  if (preferredPool.length === 0) return [];
+
+  if (preferredPool.length <= maxExamples) return preferredPool;
 
   const selected: string[] = [];
-  const step = Math.floor(sorted.length / maxExamples);
+  const step = Math.floor(preferredPool.length / maxExamples);
   for (let i = 0; i < maxExamples; i++) {
-    selected.push(sorted[Math.min(i * step, sorted.length - 1)]);
+    selected.push(preferredPool[Math.min(i * step, preferredPool.length - 1)]);
   }
 
   return selected;
@@ -473,32 +506,65 @@ export function selectFewShotExamples(
 export function buildCalibrationPrompt(
   styleBible: string,
   topic: string,
-  platform: 'linkedin' | 'x'
+  platform: 'linkedin' | 'x',
+  postTypePreferences?: PostTypePreference[],
+  priorFeedback?: Array<{
+    content: string;
+    rating: 'not_accurate' | 'good' | 'great';
+    postType?: string;
+  }>
 ): string {
   const platformContext = platform === 'linkedin'
-    ? 'a LinkedIn post (1000-1500 characters, professional but engaging, with line breaks)'
+    ? 'a LinkedIn post (500-900 characters, professional but engaging, with line breaks)'
     : 'an X/Twitter post (under 280 characters, punchy and direct)';
+  const preferredTypes = (postTypePreferences ?? [])
+    .filter((item) => item.rating >= 4)
+    .sort((a, b) => b.rating - a.rating)
+    .map((item) => humanizePostType(item.type));
+
+  const feedbackSection = priorFeedback?.length
+    ? `
+
+FEEDBACK FROM PREVIOUS VALIDATION BATCHES:
+${priorFeedback.map((item, index) => `
+Example ${index + 1} (${item.rating.toUpperCase()}${item.postType ? `, ${humanizePostType(item.postType)}` : ''}):
+${item.content}
+`).join('\n')}
+
+Lean toward the traits present in GREAT examples. Avoid the voice, structure, and framing patterns present in NOT_ACCURATE examples.
+`
+    : '';
+  const postTypeSection = preferredTypes.length
+    ? `
+FAVOR THESE POST FORMATS WHEN NATURAL:
+${preferredTypes.map((type) => `- ${type}`).join('\n')}
+
+Vary the set across these formats instead of repeating the same shape too often.
+`
+    : '';
 
   return `
 You are testing whether you've captured a client's voice correctly. Here is their Style Bible:
 
 ${styleBible}
 
-Write 3 DIFFERENT versions of ${platformContext} about this topic: "${topic}"
+Write 10 DIFFERENT versions of ${platformContext} about this topic: "${topic}".
+${postTypeSection}
+${feedbackSection}
 
 Each version should:
 - Sound like the same person (the client)
-- Take a slightly different angle or emphasis
-- Version A: Their most characteristic/natural voice
-- Version B: A slightly more polished/professional version
-- Version C: A slightly more casual/punchy version
+- Feel publishable, not like a rough draft
+- Take a meaningfully different angle, hook, structure, or post format
+- Stay faithful to the Style Bible above
+- Avoid repeating the same opener, CTA, or structure across the batch
+- Prioritize voice accuracy over cleverness
 
 Return JSON:
 {
   "versions": [
-    {"label": "A", "content": "..."},
-    {"label": "B", "content": "..."},
-    {"label": "C", "content": "..."}
+    {"label": "1", "postType": "...", "content": "..."},
+    {"label": "2", "postType": "...", "content": "..."}
   ]
 }
 

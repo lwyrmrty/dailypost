@@ -7,6 +7,7 @@ interface Step5Props {
   onComplete: (data: { postTypeRatings: PostTypeRating[] }) => void;
   onSkip: () => void;
   initialData?: { postTypeRatings: PostTypeRating[] };
+  isEditing?: boolean;
 }
 
 export interface PostTypeRating {
@@ -14,7 +15,7 @@ export interface PostTypeRating {
   rating: number;
 }
 
-export default function Step5PostTypes({ onComplete, onSkip, initialData }: Step5Props) {
+export default function Step5PostTypes({ onComplete, onSkip, initialData, isEditing = false }: Step5Props) {
   const [ratings, setRatings] = useState<Record<string, number>>(
     initialData?.postTypeRatings?.reduce(
       (acc, r) => ({ ...acc, [r.type]: r.rating }), 
@@ -37,71 +38,53 @@ export default function Step5PostTypes({ onComplete, onSkip, initialData }: Step
   const ratedCount = Object.keys(ratings).length;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold mb-2">Rate post types</h2>
-        <p className="text-gray-600">
-          How often would you like to create each type of post? 
-          Rate from 1 (rarely) to 5 (frequently).
-        </p>
+    <div className="cardcontent">
+      <div className="cardcontent-header">
+        <div className="cardcontent-heading">Rate Post Types</div>
+        <div className="cardcontent-subheading">
+          How often would you like to create each type of post? Rate from 1 (rarely) to 5 (frequently). We use this as a soft signal for the kinds of posts you naturally gravitate toward.
+          <br />
+        </div>
+        <div className="cardcontent-subheading">
+          <strong>NOTE:</strong> Ignore the language for the post, this is to help identify the types of post you write, not whether you&apos;d start a post this way.
+          <br />
+        </div>
       </div>
-
-      <div className="space-y-4">
-        {POST_TYPES.map((postType) => (
-          <div 
-            key={postType.type} 
-            className="border border-gray-200 rounded-xl p-5 hover:border-gray-300 transition-colors"
-          >
-            <div className="flex justify-between items-start mb-3">
-              <div>
-                <h3 className="font-semibold">{postType.name}</h3>
-                <p className="text-sm text-gray-600">{postType.description}</p>
-              </div>
-            </div>
-            
-            <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm text-gray-700 italic">
-              &quot;{postType.example}&quot;
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 w-16">Rarely</span>
-              <div className="flex gap-1">
-                {[1, 2, 3, 4, 5].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setRating(postType.type, value)}
-                    className={`w-10 h-10 rounded-lg font-medium transition-colors ${
-                      ratings[postType.type] === value
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-              <span className="text-sm text-gray-500 w-20">Frequently</span>
-            </div>
+      {POST_TYPES.map((postType) => (
+        <div key={postType.type} className="walkthroughblock more">
+          <div className="cardcontent-heading small">{postType.name}</div>
+          <div className="cardcontent-subheading sm">{postType.description}<br /></div>
+          <div className="textexample">
+            <div>&quot;{postType.example}&quot;</div>
           </div>
-        ))}
-      </div>
-
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={onSkip}
-          className="flex-1 border border-gray-300 rounded-lg py-3 font-medium hover:bg-gray-50 transition-colors"
-        >
-          Skip This Step
-        </button>
+          <div className="ratingrow gap">
+            <div>Rarely - </div>
+            {[1, 2, 3, 4, 5].map((value) => (
+              <div key={value} className="pillselector-item sq">
+                <button
+                  type="button"
+                  onClick={() => setRating(postType.type, value)}
+                  className={`pillselector-button sq w-inline-block ${ratings[postType.type] === value ? 'selected' : ''}`}
+                >
+                  <div className="buttonheading">{value}</div>
+                </button>
+              </div>
+            ))}
+            <div> - Frequently</div>
+          </div>
+        </div>
+      ))}
+      <button type="button" onClick={onSkip} hidden aria-hidden="true" tabIndex={-1}>
+        Skip
+      </button>
+      <div className="floatingbutton">
         <button
           type="button"
           onClick={handleSubmit}
           disabled={ratedCount < 4}
-          className="flex-1 bg-blue-600 text-white rounded-lg py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+          className="submitbutton w-button"
         >
-          Continue ({ratedCount}/{POST_TYPES.length} rated)
+          {isEditing ? 'Save Changes' : 'Continue - Next Step'}
         </button>
       </div>
     </div>
